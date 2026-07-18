@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  anonymousId String  @unique @map("anonymous_id")
+  nickname  String   @default("探索者")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  profiles     UserProfile[]
+  diaryEntries DiaryEntry[]
+  lifeManuals  LifeManual[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  basicAnswers  Json     @map("basic_answers")  // {"p1": {"q1": "A"}, ...}
+  deepTags      Json?    @map("deep_tags")       // ["tag_101", "tag_205"]
+  pillarCompleted Json?  @map("pillar_completed") // [1, 2, 3]
+  firstProfileAt DateTime? @map("first_profile_at")
+  lastSealAt     DateTime? @map("last_seal_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId])
+  @@map("user_profiles")
+}
+
+model DiaryEntry {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  entryType    String   @map("entry_type")         // emotion / behavior / intake / narrative
+  coreTag      String?  @map("core_tag")           // 愤怒 / 跑步 / 冰美式
+  intensity    Int?                                // 1-5
+  source       String?                             // 他人 / 自身 / 外物
+  note         String?                             // 用户自定义短句
+  aiHook       String?  @map("ai_hook")            // AI 记忆钩子
+  linkedPillars Json?   @map("linked_pillars")     // [2, 4]
+  fullReport   String?  @map("full_report")        // 叙事完整报告
+  score        Int?                                // -5 ~ +5
+  entryDate    DateTime @map("entry_date")          // 记录日期
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, entryDate(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("diary_entries")
+}
+
+model LifeManual {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  version     Int      @default(1)
+  coverTitle  String?  @map("cover_title")
+  fullText    String?  @map("full_text")
+  isCurrent   Boolean  @default(true) @map("is_current")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, isCurrent])
+  @@map("life_manuals")
+}

@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #5B6ABF;
+    --color-primary-light: #E8ECF9;
+    --color-secondary: #F5A3A3;
+    --color-success: #8BCB9E;
+    --color-text-primary: #1A1A2E;
+    --color-text-secondary: #6B6B80;
+    --color-bg: #F9F8FC;
+    --color-card-bg: #FFFFFF;
+    --color-border: #E2E0ED;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Minimum touch target 44px */
+  button, a, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@layer components {
+  .card-shadow {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .card-shadow-hover:hover {
+    box-shadow: 0 4px 16px rgba(91,106,191,0.12);
+  }
+}
+
+/* Ink loading animations */
+@keyframes inkExpand {
+  0% { transform: scale(0.6); opacity: 0.1; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.6); opacity: 0.1; }
+}
+
+@keyframes inkRing {
+  0% { r: 5; opacity: 0.5; }
+  100% { r: 50; opacity: 0; }
+}
+
+@keyframes inkFloat {
+  0%, 100% { transform: translateY(0); opacity: 0.2; }
+  50% { transform: translateY(-15px); opacity: 0.5; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
