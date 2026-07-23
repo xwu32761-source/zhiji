@@ -20,8 +20,8 @@ export function Button({
   const base = "inline-flex items-center justify-center font-base rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/40";
   const variants = {
     primary: "bg-primary text-white hover:bg-primary/90 active:scale-[0.97]",
-    secondary: "bg-primary-light text-primary hover:bg-primary-light/80",
-    ghost: "bg-transparent text-text-secondary hover:bg-gray-100",
+    secondary: "bg-white/10 text-white hover:bg-white/20 active:scale-[0.97]",
+    ghost: "bg-transparent text-white/70 hover:bg-white/10 hover:text-white",
     success: "bg-success text-white hover:bg-success/90",
   };
   const sizes = {

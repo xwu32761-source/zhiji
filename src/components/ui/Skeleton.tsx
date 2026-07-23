@@ -9,7 +9,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-md bg-gray-200 animate-pulse-slow",
+        "rounded-md bg-white/10 animate-pulse-slow",
         className
       )}
     />
@@ -18,7 +18,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonCard() {
   return (
-    <div className="p-4 rounded-lg bg-white card-shadow">
+    <div className="p-4 rounded-lg bg-white/5 backdrop-blur-xl border border-white/[0.06]">
       <Skeleton className="h-4 w-3/4 mb-3" />
       <Skeleton className="h-3 w-full mb-2" />
       <Skeleton className="h-3 w-2/3" />

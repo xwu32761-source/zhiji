@@ -5,6 +5,7 @@ const KEYS = {
   USER_PROFILE: "zhiji_user_profile",
   PILLAR_ANSWERS: "zhiji_pillar_answers",
   ONBOARDING_DONE: "zhiji_onboarding_done",
+  DIARY_ENTRIES: "zhiji_diary_entries",
 } as const;
 
 export function getAnonymousId(): string {

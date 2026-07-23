@@ -17,7 +17,7 @@ interface BottomTabBarProps {
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a14]/80 backdrop-blur-xl border-t border-white/10 safe-area-bottom">
       <div className="flex items-center justify-around h-14 max-w-2xl mx-auto">
         {TABS.map((tab) => (
           <button
@@ -27,8 +27,8 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
             className={cn(
               "flex flex-col items-center justify-center flex-1 h-full transition-colors duration-200",
               activeTab === tab.id
-                ? "text-primary"
-                : "text-text-secondary hover:text-text-primary"
+                ? "text-white"
+                : "text-white/50 hover:text-white/80"
             )}
           >
             <span className="text-lg leading-none">{tab.icon}</span>

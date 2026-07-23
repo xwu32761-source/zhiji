@@ -3,8 +3,15 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
+import { PillarAnswers } from "@/lib/types";
+import { getStorageItem, KEYS } from "@/lib/storage";
+import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries } from "@/lib/api-client";
 
 type Tab4State = "empty" | "insufficient" | "ready" | "generated";
+
+const PILLAR_STORAGE_KEY = "zhiji_pillar_answers_v2";
+const PILLAR_NEEDED = 3;
+const ENTRY_NEEDED = 5;
 
 const LOADING_QUOTES = [
   "正在整理你的昨日碎片……",
@@ -22,27 +29,27 @@ function InkLoadingAnimation() {
       <path
         d="M60 10 C60 10, 30 40, 30 65 C30 85, 45 100, 60 100 C75 100, 90 85, 90 65 C90 40, 60 10, 60 10Z"
         fill="none"
-        stroke="#5B6ABF"
+        stroke="#818CF8"
         strokeWidth="1.5"
         className="animate-[inkExpand_3s_ease-in-out_infinite]"
         opacity="0.3"
       />
       {/* Expanding ring 1 */}
       <circle
-        cx="60" cy="55" r="0" fill="none" stroke="#5B6ABF" strokeWidth="1"
+        cx="60" cy="55" r="0" fill="none" stroke="#818CF8" strokeWidth="1"
         className="animate-[inkRing_3s_ease-out_infinite]"
         opacity="0"
       />
       {/* Expanding ring 2 */}
       <circle
-        cx="60" cy="55" r="0" fill="none" stroke="#5B6ABF" strokeWidth="0.8"
+        cx="60" cy="55" r="0" fill="none" stroke="#818CF8" strokeWidth="0.8"
         className="animate-[inkRing_3s_ease-out_infinite]"
         style={{ animationDelay: "1s" }}
         opacity="0"
       />
       {/* Expanding ring 3 */}
       <circle
-        cx="60" cy="55" r="0" fill="none" stroke="#5B6ABF" strokeWidth="0.5"
+        cx="60" cy="55" r="0" fill="none" stroke="#818CF8" strokeWidth="0.5"
         className="animate-[inkRing_3s_ease-out_infinite]"
         style={{ animationDelay: "2s" }}
         opacity="0"
@@ -54,7 +61,7 @@ function InkLoadingAnimation() {
           cx={40 + Math.random() * 40}
           cy={35 + Math.random() * 35}
           r="2"
-          fill="#5B6ABF"
+          fill="#818CF8"
           className="animate-[inkFloat_4s_ease-in-out_infinite]"
           style={{
             animationDelay: `${i * 0.6}s`,
@@ -63,8 +70,8 @@ function InkLoadingAnimation() {
         />
       ))}
       {/* Center pulsing circle */}
-      <circle cx="60" cy="55" r="8" fill="#5B6ABF" opacity="0.15" className="animate-[pulse_2s_ease-in-out_infinite]" />
-      <circle cx="60" cy="55" r="4" fill="#5B6ABF" opacity="0.25" className="animate-[pulse_2s_ease-in-out_infinite]" style={{ animationDelay: "0.5s" }} />
+      <circle cx="60" cy="55" r="8" fill="#818CF8" opacity="0.15" className="animate-[pulse_2s_ease-in-out_infinite]" />
+      <circle cx="60" cy="55" r="4" fill="#818CF8" opacity="0.25" className="animate-[pulse_2s_ease-in-out_infinite]" style={{ animationDelay: "0.5s" }} />
     </svg>
   );
 }
@@ -80,12 +87,12 @@ function ReportLoadingOverlay() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-50 bg-[#0a0a14] flex flex-col items-center justify-center">
       <InkLoadingAnimation />
-      <p className="text-sm text-text-primary font-medium transition-opacity duration-500">
+      <p className="text-sm text-white/90 font-medium transition-opacity duration-500 tracking-wide">
         {LOADING_QUOTES[quoteIndex]}
       </p>
-      <p className="text-xs text-text-secondary mt-6 animate-breathe">
+      <p className="text-xs text-white/70 mt-6 animate-breathe">
         正在生成中，请稍候……
       </p>
     </div>
@@ -93,35 +100,74 @@ function ReportLoadingOverlay() {
 }
 
 export default function Tab4Page() {
-  // Mock: 2 pillars done, 4 entries → insufficient
   const [state, setState] = useState<Tab4State>("insufficient");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
 
-  const pillarProgress = 2; // out of 3 needed
-  const entryProgress = 4;  // out of 5 needed
-  const pillarNeeded = Math.max(0, 3 - pillarProgress);
-  const entryNeeded = Math.max(0, 5 - entryProgress);
+  const [pillarProgress, setPillarProgress] = useState(0);
+  const [entryProgress, setEntryProgress] = useState(0);
+
+  const pillarNeeded = Math.max(0, PILLAR_NEEDED - pillarProgress);
+  const entryNeeded = Math.max(0, ENTRY_NEEDED - entryProgress);
+
+  // Read real progress from localStorage + API on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      // 先从本地读取
+      const localPillarData = getStorageItem<Record<number, PillarAnswers>>(PILLAR_STORAGE_KEY, {});
+      const localEntries = getStorageItem<any[]>(KEYS.DIARY_ENTRIES, []);
+
+      let doneCount = Object.values(localPillarData).filter((d) => d.status === "done").length;
+      let entryCount = localEntries.length;
+
+      // 再尝试从 API 获取最新数据
+      const [pillarRes, entriesRes] = await Promise.all([
+        apiFetchPillars(),
+        apiFetchEntries(),
+      ]);
+
+      if (!cancelled) {
+        if (pillarRes.ok && pillarRes.data.pillarData) {
+          const apiData = pillarRes.data.pillarData as Record<number, PillarAnswers>;
+          doneCount = Object.values(apiData).filter((d) => d.status === "done").length;
+        }
+        if (entriesRes.ok) {
+          entryCount = entriesRes.data.total;
+        }
+
+        setPillarProgress(doneCount);
+        setEntryProgress(entryCount);
+
+        if (doneCount >= PILLAR_NEEDED && entryCount >= ENTRY_NEEDED) {
+          setState("ready");
+        } else if (doneCount === 0 && entryCount === 0) {
+          setState("empty");
+        } else {
+          setState("insufficient");
+        }
+      }
+    }
+
+    init();
+    return () => { cancelled = true; };
+  }, []);
 
   const [reportContent, setReportContent] = useState("");
 
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      // Load data from localStorage
-      const profile = typeof window !== "undefined"
-        ? localStorage.getItem("zhiji_pillar_states") || "{}"
-        : "{}";
-      const entries = typeof window !== "undefined"
-        ? localStorage.getItem("zhiji_diary_entries") || "[]"
-        : "[]";
+      const pillarData = getStorageItem<Record<number, PillarAnswers>>(PILLAR_STORAGE_KEY, {});
+      const entries = getStorageItem<any[]>(KEYS.DIARY_ENTRIES, []);
 
       const res = await fetch("/api/ai/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userProfile: JSON.parse(profile),
-          recentEntries: JSON.parse(entries),
+          userProfile: { pillarAnswers: pillarData },
+          recentEntries: entries,
         }),
       });
       const data = await res.json();
@@ -138,7 +184,7 @@ export default function Tab4Page() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div className="w-32 h-32 mb-6 text-6xl opacity-30">🧩</div>
-        <p className="text-lg text-text-secondary mb-2">你的专属说明书正在沉睡……</p>
+        <p className="text-lg text-white/70 mb-2">你的专属说明书正在沉睡……</p>
         <Button variant="primary" size="md">
           ⚡ 去点亮第一块拼图
         </Button>
@@ -149,33 +195,33 @@ export default function Tab4Page() {
   if (state === "insufficient") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-        <h1 className="text-lg font-bold text-text-primary mb-2">📄 我的人生使用说明书</h1>
+        <h1 className="text-lg font-bold text-white tracking-wide mb-2">📄 我的人生使用说明书</h1>
 
         {/* Dual progress */}
         <div className="w-full max-w-xs mb-8 mt-4">
           {/* Pillar progress */}
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-text-primary">支柱进度</span>
-              <span className="text-text-secondary">{pillarProgress}/3</span>
+              <span className="text-white/80">支柱进度</span>
+              <span className="text-white/70">{pillarProgress}/3</span>
             </div>
-            <div className="h-2 bg-border rounded-full overflow-hidden">
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(pillarProgress / 3) * 100}%` }} />
             </div>
           </div>
           {/* Entry progress */}
           <div className="mb-4">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-text-primary">记录进度</span>
-              <span className="text-text-secondary">{entryProgress}/5</span>
+              <span className="text-white/80">记录进度</span>
+              <span className="text-white/70">{entryProgress}/5</span>
             </div>
-            <div className="h-2 bg-border rounded-full overflow-hidden">
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-success rounded-full transition-all" style={{ width: `${(entryProgress / 5) * 100}%` }} />
             </div>
           </div>
         </div>
 
-        <p className="text-sm text-text-secondary mb-6">
+        <p className="text-sm text-white/70 mb-6 leading-relaxed">
           还差 {pillarNeeded} 个支柱{entryNeeded > 0 && ` 和 ${entryNeeded} 条记录`}，初版说明书即可破茧。
         </p>
 
@@ -189,11 +235,11 @@ export default function Tab4Page() {
   if (state === "ready") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-        <h1 className="text-lg font-bold text-text-primary mb-6">📄 我的人生使用说明书</h1>
+        <h1 className="text-lg font-bold text-white tracking-wide mb-6">📄 我的人生使用说明书</h1>
 
         <ProgressRing progress={100} size={120} strokeWidth={6} label="" />
 
-        <p className="text-sm text-text-secondary mt-6 mb-8">
+        <p className="text-sm text-white/70 mt-6 mb-8">
           数据已充足，可以唤醒你的专属说明书了。
         </p>
 
@@ -276,12 +322,13 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
       {sections.map((section, i) => {
         if (section.startsWith("亲爱的")) {
           return (
-            <section key={i} className="bg-[#FFF8E7] border border-[#E8DCC8] rounded-lg p-6 mb-8">
+            <section key={i} className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-lg p-6 mb-8">
               {section.split("\n\n").map((para, j) => {
                 const t = para.trim();
                 if (!t) return null;
+                const isSignOff = t === "我一直在看。";
                 return (
-                  <p key={j} className={`text-sm font-serif italic leading-relaxed mb-4 ${t === "我一直在看。" ? "text-primary" : "text-text-primary"}`}>
+                  <p key={j} className={`text-sm font-serif italic leading-relaxed mb-4 ${isSignOff ? "text-primary" : "text-white/90"}`}>
                     {t}
                   </p>
                 );
@@ -298,10 +345,10 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
         if (title.includes("版本更新")) {
           return (
             <section key={i} className="mb-8">
-              <h3 className="text-md font-serif font-bold text-primary mb-3">{title}</h3>
+              <h3 className="text-md font-serif font-bold text-primary mb-3 tracking-wide">{title}</h3>
               <div className="border-l-2 border-primary/30 pl-3 space-y-2">
                 {body.split("\n").filter(l => l.trim()).map((line, j) => (
-                  <p key={j} className="text-xs text-text-secondary">{line.replace(/^[-*]\s*/, "")}</p>
+                  <p key={j} className="text-xs text-white/70">{line.replace(/^[-*]\s*/, "")}</p>
                 ))}
               </div>
             </section>
@@ -311,7 +358,7 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
         const bodyLines = body.split("\n").filter(l => l.trim());
         return (
           <section key={i} className="mb-8">
-            {title && <h3 className="text-md font-serif font-bold text-primary mb-3">{title}</h3>}
+            {title && <h3 className="text-md font-serif font-bold text-primary mb-3 tracking-wide">{title}</h3>}
             <div className="space-y-2">
               {bodyLines.map((line, j) => {
                 const trimmed = line.trim().replace(/^[-*]\s*/, "");
@@ -319,20 +366,20 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
                   const isCharge = trimmed.includes("充能");
                   return (
                     <div key={j} className={`rounded-lg p-3 ${isCharge ? "bg-success/10" : "bg-secondary/10"}`}>
-                      <p className={`text-sm font-medium ${isCharge ? "text-green-800" : "text-red-700"}`}>
+                      <p className={`text-sm font-medium ${isCharge ? "text-success" : "text-secondary"}`}>
                         {trimmed.replace(/\*\*/g, "")}
                       </p>
                     </div>
                   );
                 }
-                return <p key={j} className="text-sm text-text-primary leading-relaxed">{trimmed}</p>;
+                return <p key={j} className="text-sm text-white/90 leading-relaxed">{trimmed}</p>;
               })}
             </div>
           </section>
         );
       })}
 
-      <div className="flex gap-3 sticky bottom-16 bg-bg/95 backdrop-blur-sm py-3">
+      <div className="flex gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4">
         <Button variant="ghost" size="md" className="flex-1">📤 即将上线</Button>
         <Button variant="primary" size="md" className="flex-1">🔄 校准（剩余 3 次）</Button>
       </div>

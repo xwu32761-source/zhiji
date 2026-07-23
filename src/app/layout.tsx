@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,9 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN">
-      <body className="min-h-screen bg-bg text-text-primary antialiased">
-        {children}
+    <html lang="zh-CN" className="h-full">
+      <body className="min-h-full bg-[#0a0a14] text-white antialiased">
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

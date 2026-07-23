@@ -15,24 +15,6 @@ export const PILLARS: Pillar[] = [
   { id: 12, name: "生活环境", icon: "🏠", tags: ["空间舒适", "归属感强", "作息规律", "作息混乱", "整洁偏好", "信息整洁", "快节奏适应", "慢节奏偏好", "自然亲近", "城市便利"] },
 ];
 
-export const SOUL_QUESTIONS = [
-  {
-    id: "q1",
-    question: "你现在最大的精力消耗源是？",
-    options: ["工作", "感情", "经济", "自我内耗"],
-  },
-  {
-    id: "q2",
-    question: "你目前的依恋人格更偏向？",
-    options: ["安全型", "焦虑型", "回避型"],
-  },
-  {
-    id: "q3",
-    question: "你理想中 10 年后的自己，最看重什么？",
-    options: ["自由", "财富", "亲密关系", "自我实现"],
-  },
-];
-
 export const PILLAR_STATUS_LABELS = {
   idle: "待探索",
   progress: "进行中",

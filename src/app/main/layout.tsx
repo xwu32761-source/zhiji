@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { ToastProvider } from "@/components/shared/ToastManager";
+import { StarsBackground } from "@/components/ui/stars";
 import { TabType } from "@/lib/types";
 import Tab1Page from "./Tab1";
 import Tab2Page from "./Tab2";
@@ -31,7 +32,7 @@ export default function MainLayout() {
   }, []);
 
   if (!mounted) {
-    return <div className="min-h-screen bg-bg" />;
+    return <div className="min-h-screen bg-[#0a0a14]" />;
   }
 
   const renderTab = () => {
@@ -46,16 +47,17 @@ export default function MainLayout() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-bg pb-16">
+      <StarsBackground className="fixed inset-0 -z-10" />
+      <div className="relative min-h-screen pb-16">
         {/* Offline banner */}
         {isOffline && (
-          <div className="sticky top-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-2 text-center animate-[slideDown_0.3s_ease-out]">
-            <p className="text-xs text-amber-700">
+          <div className="sticky top-0 z-50 bg-amber-500/20 backdrop-blur-md border-b border-amber-500/30 px-4 py-2 text-center animate-[slideDown_0.3s_ease-out]">
+            <p className="text-xs text-amber-200">
               ⚠️ 网络不稳定，数据将本地暂存，恢复后同步
             </p>
           </div>
         )}
-        <main className="max-w-2xl mx-auto px-4 pt-4">
+        <main className="relative z-10 max-w-2xl mx-auto px-4 pt-4">
           {renderTab()}
         </main>
         <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />

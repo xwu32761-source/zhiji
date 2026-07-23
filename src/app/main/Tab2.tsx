@@ -1,8 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/components/shared/ToastManager";
 import { Button } from "@/components/ui/Button";
+import { DiaryEntryData } from "@/lib/types";
+import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
+import { createEntry as apiCreateEntry, fetchEntries as apiFetchEntries } from "@/lib/api-client";
+
+const STORAGE_KEY = KEYS.DIARY_ENTRIES;
+
+// Sentiment for score derivation
+const POSITIVE_EMOTIONS = new Set(["开心", "平静", "爱/信任"]);
+const NEGATIVE_EMOTIONS = new Set(["焦虑", "恐惧", "愤怒", "悲伤"]);
+
+function getScore(emotionName: string, intensity: number): number {
+  if (POSITIVE_EMOTIONS.has(emotionName)) return intensity;
+  if (NEGATIVE_EMOTIONS.has(emotionName)) return -intensity;
+  return 0; // behavior / intake → neutral
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function loadEntries(): DiaryEntryData[] {
+  return getStorageItem<DiaryEntryData[]>(STORAGE_KEY, []);
+}
+
+function saveEntryLocal(entry: DiaryEntryData) {
+  const entries = loadEntries();
+  entries.unshift(entry);
+  setStorageItem(STORAGE_KEY, entries);
+}
+
+/** 先尝试 API 保存，失败则存 localStorage */
+async function saveEntry(entry: DiaryEntryData): Promise<void> {
+  const res = await apiCreateEntry({
+    entryType: entry.entryType,
+    coreTag: entry.coreTag || undefined,
+    intensity: entry.intensity || undefined,
+    source: entry.source || undefined,
+    note: entry.note || undefined,
+  });
+  if (res.ok) {
+    saveEntryLocal(entry);
+  } else {
+    // API 不可用 → 保存到本地
+    saveEntryLocal(entry);
+  }
+}
 
 // Emotion taxonomy
 const EMOTION_CATEGORIES = [
@@ -26,14 +73,20 @@ const EMOTION_CATEGORIES = [
       { name: "工作", variants: ["专注", "拖延", "忙碌"], details: ["高效输出", "摸鱼", "加班", "会议轰炸"] },
       { name: "运动", variants: ["有氧", "力量", "拉伸"], details: ["跑步", "游泳", "瑜伽", "散步", "健身"] },
       { name: "休息", variants: ["睡眠", "放空", "娱乐"], details: ["小憩", "刷手机", "追剧", "发呆"] },
+      { name: "学习", variants: ["阅读", "听课", "实践"], details: ["看书", "上网课", "做笔记", "背单词"] },
+      { name: "社交", variants: ["聚会", "独处", "陪伴"], details: ["朋友聚餐", "宅家", "陪家人", "遛宠物"] },
+      { name: "创作", variants: ["写作", "绘画", "音乐", "手工"], details: ["写日记", "涂鸦", "弹琴", "做手工"] },
+      { name: "家务", variants: ["清洁", "整理", "烹饪"], details: ["打扫", "收纳", "做饭", "洗衣服"] },
+      { name: "通勤", variants: ["步行", "驾车", "公共交通"], details: ["走路", "开车", "挤地铁", "骑车"] },
     ],
   },
   {
     type: "intake" as const,
-    label: "🌱 此刻的摄入",
+    label: "🌱 此刻的滋养",
     data: [
       { name: "饮食", variants: ["正餐", "零食", "饮品"], details: ["外卖", "下厨", "奶茶", "咖啡", "酒"] },
       { name: "信息", variants: ["阅读", "视频", "社交"], details: ["看书", "刷短视频", "看新闻", "刷朋友圈"] },
+      { name: "精神补给", variants: ["灵感", "自然", "音乐", "艺术"], details: ["看日落", "听音乐", "逛展", "冥想", "去公园"] },
     ],
   },
 ];
@@ -46,22 +99,45 @@ export default function Tab2Page() {
   const [mode, setMode] = useState<Mode>("quick");
   const [todayCount, setTodayCount] = useState(0);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      // 先读本地
+      const local = loadEntries();
+      const today = todayStr();
+      setTodayCount(local.filter((e) => e.entryDate === today).length);
+      // 尝试从 API 获取最新
+      const res = await apiFetchEntries();
+      if (!cancelled && res.ok) {
+        setTodayCount(res.data.entries.filter((e) => e.entryDate === today).length);
+      }
+    }
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSaved = () => {
+    const today = todayStr();
+    const entries = loadEntries();
+    setTodayCount(entries.filter((e) => e.entryDate === today).length);
+  };
+
   return (
     <div>
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-bold text-text-primary">⚡ 定格此刻</h1>
-        <span className="text-xs text-text-secondary bg-card px-3 py-1 rounded-full">
+        <h1 className="text-lg font-bold text-white tracking-wider">⚡ 定格此刻</h1>
+        <span className="text-xs text-white/70 bg-white/5 backdrop-blur-xl border border-white/[0.06] px-3 py-1 rounded-full">
           今日 {todayCount} 次
         </span>
       </div>
 
       {/* Mode toggle */}
-      <div className="flex bg-card rounded-full p-1 mb-6 border border-border">
+      <div className="flex bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-full p-1 mb-6">
         <button
           onClick={() => setMode("quick")}
           className={`flex-1 py-2 text-sm rounded-full transition-colors ${
-            mode === "quick" ? "bg-primary text-white" : "text-text-secondary"
+            mode === "quick" ? "bg-white/15 text-white" : "text-white/70"
           }`}
         >
           闪电定格
@@ -69,7 +145,7 @@ export default function Tab2Page() {
         <button
           onClick={() => setMode("narrative")}
           className={`flex-1 py-2 text-sm rounded-full transition-colors ${
-            mode !== "quick" ? "bg-primary text-white" : "text-text-secondary"
+            mode !== "quick" ? "bg-white/15 text-white" : "text-white/70"
           }`}
         >
           叙事疗愈
@@ -77,13 +153,13 @@ export default function Tab2Page() {
       </div>
 
       {/* Content based on mode */}
-      {mode === "quick" ? <QuickModeContent /> : <NarrativeModeContent />}
+      {mode === "quick" ? <QuickModeContent onSaved={handleSaved} /> : <NarrativeModeContent />}
     </div>
   );
 }
 
 // =========== Quick Mode Content ===========
-function QuickModeContent() {
+function QuickModeContent({ onSaved }: { onSaved?: () => void }) {
   const { showToast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<number | null>(null);
@@ -98,6 +174,23 @@ function QuickModeContent() {
 
   const handleQuickSave = async () => {
     setLoading(true);
+
+    // Build and save entry
+    const now = new Date();
+    const entry: DiaryEntryData = {
+      id: crypto.randomUUID(),
+      entryType: category?.type || "emotion",
+      coreTag: emotion?.name || null,
+      intensity: intensity,
+      source: source,
+      note: selectedDetail ? (note ? `${selectedDetail} · ${note}` : selectedDetail) : note,
+      aiHook: null,
+      score: emotion ? getScore(emotion.name, intensity) : 0,
+      entryDate: todayStr(),
+      createdAt: now.toISOString(),
+    };
+    saveEntry(entry);
+
     await new Promise((r) => setTimeout(r, 500));
     const msg = TOAST_MSGS[Math.floor(Math.random() * TOAST_MSGS.length)];
     showToast(msg, "success");
@@ -108,6 +201,7 @@ function QuickModeContent() {
     setSource(null);
     setNote("");
     setLoading(false);
+    onSaved?.();
   };
 
   return (
@@ -118,9 +212,9 @@ function QuickModeContent() {
             <button
               key={i}
               onClick={() => setSelectedCategory(i)}
-              className="w-full p-5 bg-card rounded-xl card-shadow text-left hover:card-shadow-hover transition-all"
+              className="w-full p-5 bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl text-left hover:bg-white/[0.08] transition-all"
             >
-              <span className="text-xl">{cat.label}</span>
+              <span className="text-xl text-white/90 tracking-wide">{cat.label}</span>
             </button>
           ))}
         </div>
@@ -128,7 +222,7 @@ function QuickModeContent() {
         <div>
           <button
             onClick={() => { setSelectedCategory(null); setSelectedEmotion(null); setSelectedDetail(null); }}
-            className="text-sm text-text-secondary mb-4 hover:text-text-primary"
+            className="text-sm text-white/70 mb-4 hover:text-white transition-colors"
           >
             ← 返回分类
           </button>
@@ -139,7 +233,7 @@ function QuickModeContent() {
                 <button
                   key={i}
                   onClick={() => setSelectedEmotion(i)}
-                  className="p-3 bg-card rounded-lg card-shadow text-sm text-left hover:card-shadow-hover transition-all"
+                  className="p-3 bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-lg text-sm text-left text-white/80 hover:bg-white/[0.08] transition-all"
                 >
                   {em.name}
                 </button>
@@ -149,12 +243,12 @@ function QuickModeContent() {
             <div>
               <button
                 onClick={() => setSelectedEmotion(null)}
-                className="text-sm text-text-secondary mb-4 hover:text-text-primary"
+                className="text-sm text-white/70 mb-4 hover:text-white transition-colors"
               >
                 ← 返回
               </button>
 
-              <p className="text-sm font-medium text-text-primary mb-3">
+              <p className="text-sm font-medium text-white/90 tracking-wide mb-3">
                 {category!.label} &gt; {emotion!.name}
               </p>
               <div className="flex flex-wrap gap-2 mb-6">
@@ -163,7 +257,7 @@ function QuickModeContent() {
                     key={d}
                     onClick={() => setSelectedDetail(d)}
                     className={`px-3 py-1.5 rounded-full text-xs transition-all ${
-                      selectedDetail === d ? "bg-primary text-white" : "bg-primary-light text-text-secondary hover:bg-primary/20"
+                      selectedDetail === d ? "bg-primary text-white" : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
                     }`}
                   >
                     {d}
@@ -172,14 +266,14 @@ function QuickModeContent() {
               </div>
 
               <div className="mb-6">
-                <p className="text-sm text-text-primary mb-2">强度：{intensity}/5</p>
+                <p className="text-sm text-white/80 mb-2">强度：{intensity}/5</p>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((v) => (
                     <button
                       key={v}
                       onClick={() => setIntensity(v)}
                       className={`w-10 h-10 rounded-full text-sm transition-all ${
-                        v <= intensity ? "bg-primary text-white" : "bg-primary-light text-text-secondary"
+                        v <= intensity ? "bg-primary text-white" : "bg-white/10 text-white/70 hover:bg-white/20"
                       }`}
                     >
                       {v}
@@ -189,14 +283,14 @@ function QuickModeContent() {
               </div>
 
               <div className="mb-6">
-                <p className="text-sm text-text-primary mb-2">来源</p>
+                <p className="text-sm text-white/80 mb-2">来源</p>
                 <div className="flex gap-2">
                   {["👤 我自己", "👥 他人", "🌍 外物"].map((s) => (
                     <button
                       key={s}
                       onClick={() => setSource(s)}
                       className={`px-4 py-2 rounded-full text-xs transition-all ${
-                        source === s ? "bg-primary text-white" : "bg-primary-light text-text-secondary"
+                        source === s ? "bg-primary text-white" : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
                       }`}
                     >
                       {s}
@@ -209,7 +303,7 @@ function QuickModeContent() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="一句话带过，选填"
-                className="w-full p-3 rounded-lg border border-border bg-white text-sm mb-6 focus:outline-none focus:border-primary"
+                className="w-full p-3 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder-white/50 mb-6 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30"
               />
 
               <Button variant="primary" size="lg" className="w-full" loading={loading} onClick={handleQuickSave}>
@@ -320,9 +414,9 @@ function NarrativeModeContent() {
           value={narrativeText}
           onChange={(e) => setNarrativeText(e.target.value)}
           placeholder="今天发生了什么？开心的、难过的、困惑的……我都想听。"
-          className="w-full h-48 p-4 rounded-lg border border-border bg-white text-sm resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 mb-4 transition-all"
+          className="w-full h-48 p-4 rounded-lg border border-white/10 bg-white/5 text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30 mb-4 transition-all"
         />
-        <p className="text-xs text-text-secondary text-right mb-3">
+        <p className="text-xs text-white/70 text-right mb-3">
           {narrativeText.length} 字 {narrativeText.length < 5 ? "（至少 5 字）" : "✅"}
         </p>
         <Button
@@ -343,24 +437,24 @@ function NarrativeModeContent() {
   if (chatPhase === "report") {
     return (
       <div>
-        <div className="bg-card rounded-xl card-shadow p-6 mb-4 animate-[fadeIn_0.4s_ease-out]">
-          <p className="text-sm text-text-secondary mb-1">🔖 心灵回响</p>
+        <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 mb-4 animate-[fadeIn_0.4s_ease-out]">
+          <p className="text-sm text-white/70 mb-1 tracking-wide">🔖 心灵回响</p>
           <p className="text-lg font-serif text-primary mb-4">{narrativeResult.title}</p>
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-text-secondary mb-1">第一层 · 镜中之镜</p>
-              <p className="text-sm text-text-primary leading-relaxed">{narrativeResult.mirror}</p>
+              <p className="text-xs text-white/70 mb-1">第一层 · 镜中之镜</p>
+              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.mirror}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary mb-1">第二层 · 深层透视</p>
-              <p className="text-sm text-text-primary leading-relaxed">{narrativeResult.psychology}</p>
+              <p className="text-xs text-white/70 mb-1">第二层 · 深层透视</p>
+              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.psychology}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary mb-1">第三层 · 与你同在</p>
-              <p className="text-sm text-text-primary leading-relaxed">{narrativeResult.empathy}</p>
+              <p className="text-xs text-white/70 mb-1">第三层 · 与你同在</p>
+              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.empathy}</p>
             </div>
-            <div className="bg-primary-light rounded-lg p-4">
-              <p className="text-xs text-text-secondary mb-1">✨ 一剂行动微光</p>
+            <div className="bg-white/10 rounded-lg p-4">
+              <p className="text-xs text-white/70 mb-1 tracking-wide">✨ 一剂行动微光</p>
               <p className="text-sm text-primary">{narrativeResult.action}</p>
             </div>
           </div>
@@ -368,7 +462,7 @@ function NarrativeModeContent() {
 
         <div className="flex gap-3">
           <Button
-            variant="success"
+            variant="primary"
             size="lg"
             className="flex-1"
             onClick={handleSaveAndReturn}
@@ -389,7 +483,7 @@ function NarrativeModeContent() {
       {/* Back to report button */}
       <button
         onClick={() => setChatPhase("report")}
-        className="text-sm text-text-secondary mb-3 hover:text-text-primary self-start"
+        className="text-sm text-white/70 mb-3 hover:text-white transition-colors self-start"
       >
         ← 返回报告
       </button>
@@ -405,7 +499,7 @@ function NarrativeModeContent() {
               className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                 msg.role === "user"
                   ? "bg-primary text-white rounded-br-md"
-                  : "bg-card card-shadow text-text-primary rounded-bl-md"
+                  : "bg-white/5 backdrop-blur-xl border border-white/[0.06] text-white/90 rounded-bl-md"
               }`}
             >
               {msg.text}
@@ -416,11 +510,11 @@ function NarrativeModeContent() {
         {/* AI typing indicator */}
         {aiTyping && (
           <div className="flex justify-start">
-            <div className="bg-card card-shadow px-4 py-3 rounded-2xl rounded-bl-md">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] px-4 py-3 rounded-2xl rounded-bl-md">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           </div>
@@ -435,7 +529,7 @@ function NarrativeModeContent() {
           onKeyDown={handleKeyDown}
           placeholder="说说你的感受……"
           rows={2}
-          className="flex-1 p-3 rounded-xl border border-border bg-white text-sm resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+          className="flex-1 p-3 rounded-xl border border-white/10 bg-white/5 text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30"
         />
         <button
           onClick={handleSendMessage}
@@ -450,7 +544,7 @@ function NarrativeModeContent() {
       {/* Settle button */}
       <button
         onClick={handleSaveAndReturn}
-        className="mt-3 w-full py-2.5 rounded-full bg-primary-light text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+        className="mt-3 w-full py-2.5 rounded-full bg-white/10 text-white/80 text-sm font-medium hover:bg-white/20 transition-colors tracking-wide"
       >
         🤝 沉淀为最终报告
       </button>
