@@ -101,6 +101,7 @@ function ReportLoadingOverlay() {
 
 export default function Tab4Page() {
   const [state, setState] = useState<Tab4State>("insufficient");
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
 
@@ -122,14 +123,14 @@ export default function Tab4Page() {
       let doneCount = Object.values(localPillarData).filter((d) => d.status === "done").length;
       let entryCount = localEntries.length;
 
-      // 再尝试从 API 获取最新数据
+      // 再尝试从 API 获取最新数据（仅当 API 返回有效数据时覆盖）
       const [pillarRes, entriesRes] = await Promise.all([
         apiFetchPillars(),
         apiFetchEntries(),
       ]);
 
       if (!cancelled) {
-        if (pillarRes.ok && pillarRes.data.pillarData) {
+        if (pillarRes.ok && pillarRes.data.pillarData && Object.keys(pillarRes.data.pillarData).length > 0) {
           const apiData = pillarRes.data.pillarData as Record<number, PillarAnswers>;
           doneCount = Object.values(apiData).filter((d) => d.status === "done").length;
         }
@@ -147,6 +148,7 @@ export default function Tab4Page() {
         } else {
           setState("insufficient");
         }
+        setDataLoaded(true);
       }
     }
 
@@ -179,6 +181,11 @@ export default function Tab4Page() {
     setGenerated(true);
     setState("generated");
   };
+
+  // 数据加载完成前不渲染，防止闪跳
+  if (!dataLoaded) {
+    return <div className="min-h-[60vh]" />;
+  }
 
   if (state === "empty") {
     return (
