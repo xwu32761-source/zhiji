@@ -193,7 +193,7 @@ function PillarDetailView({
   const answeredCount = Object.keys(existingData.answers).length;
 
   const [phase, setPhase] = useState<DetailPhase>(
-    answeredCount === 0 ? "answering" : answeredCount >= PASSING_QS ? "reviewing" : "choosing"
+    answeredCount === 0 ? "answering" : "choosing"
   );
   const [batchIndex, setBatchIndex] = useState(Math.floor(answeredCount / BATCH_SIZE));
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
@@ -228,13 +228,12 @@ function PillarDetailView({
     onDataChange(data);
 
     if (isDone) {
-      showToast(`✅ ${pillar.name} 已点亮！`, "success");
-      setPhase("reviewing");
+      showToast(`✅ ${pillar.name} 已点亮！还可继续补充答题`, "success");
     } else {
       showToast(`已保存！答满 ${PASSING_QS} 题即可点亮`, "success");
-      setCurrentAnswers({});
-      setPhase("choosing");
     }
+    setCurrentAnswers({});
+    setPhase("choosing");
   };
 
   const handleSubmitSupplement = () => {
@@ -342,7 +341,11 @@ function PillarDetailView({
           <p className="text-sm font-medium text-white mb-1">
             已答 {Object.keys(allAnswers).length} 题
           </p>
-          <p className="text-xs text-white/70 mb-5">还要继续答题吗？（答满 {PASSING_QS} 题点亮）</p>
+          <p className="text-xs text-white/70 mb-5">
+            {Object.keys(allAnswers).length >= PASSING_QS
+              ? "✅ 已点亮，可继续补充答题"
+              : "还要继续答题吗？（答满 3 题点亮）"}
+          </p>
 
           <div className="flex flex-col gap-2 max-w-xs mx-auto">
             <Button variant="primary" size="md" onClick={() => { setBatchIndex((i) => i + 1); setPhase("answering"); }}>
@@ -371,12 +374,12 @@ function PillarDetailView({
             <p className="text-xs text-white/70 mt-1">{supplements.length} 条补充</p>
           </div>
 
-          {/* Continue answering button (if not done) */}
-          {Object.keys(allAnswers).length < PASSING_QS && (
-            <button onClick={() => { setBatchIndex(Math.floor(Object.keys(allAnswers).length / BATCH_SIZE)); setPhase("answering"); }}
+          {/* Continue answering button */}
+          {Object.keys(allAnswers).length < TOTAL_QS_PER_PILLAR && (
+            <button onClick={() => { setBatchIndex(Math.floor(Object.keys(allAnswers).length / BATCH_SIZE)); setPhase("choosing"); }}
               className="w-full py-2.5 text-sm text-white bg-white/10 rounded-full mb-4 hover:bg-white/20 transition-colors"
             >
-              继续答题（答满 {PASSING_QS} 题点亮）
+              继续答题
             </button>
           )}
 
