@@ -25,6 +25,8 @@ interface DayGroupItem {
   intensity: number;
   score: number;
   note: string;
+  entryType: string;
+  aiHook: string | null;
 }
 
 interface DayGroup {
@@ -51,6 +53,8 @@ function groupEntriesByDate(entries: DiaryEntryData[]): DayGroup[] {
       intensity: e.intensity || 0,
       score: e.score || 0,
       note: e.note || "",
+      entryType: e.entryType || "emotion",
+      aiHook: e.aiHook || null,
     });
   });
 
@@ -361,6 +365,37 @@ function DayListView({
   }, [entries, year, month, sortAsc]);
 
   const total = entries.length;
+  const [narrativeDetail, setNarrativeDetail] = useState<any>(null);
+
+  // Render full narrative report modal
+  const NarrativeModal = narrativeDetail ? (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setNarrativeDetail(null)}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-t-2xl sm:rounded-2xl p-6 m-4 animate-[slideUp_0.3s_ease-out]" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => setNarrativeDetail(null)} className="float-right w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/70">✕</button>
+        <p className="text-xs text-white/70 mb-1 tracking-wide">🔖 心灵回响</p>
+        <p className="text-lg font-serif text-primary mb-4">{narrativeDetail.title}</p>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-white/70 mb-1">第一层 · 镜中之镜</p>
+            <p className="text-sm text-white/90 leading-relaxed">{narrativeDetail.mirror}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/70 mb-1">第二层 · 深层透视</p>
+            <p className="text-sm text-white/90 leading-relaxed">{narrativeDetail.psychology}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/70 mb-1">第三层 · 与你同在</p>
+            <p className="text-sm text-white/90 leading-relaxed">{narrativeDetail.empathy}</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-4">
+            <p className="text-xs text-white/70 mb-1 tracking-wide">✨ 一剂行动微光</p>
+            <p className="text-sm text-primary">{narrativeDetail.action}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div>
@@ -412,13 +447,30 @@ function DayListView({
                     </div>
                   )}
                   <div className="space-y-1">
-                    {day.items.map((item, i) => (
-                      <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/[0.04]">
-                        <span className="text-xs text-white/70 w-12 shrink-0">{item.time}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${item.score > 0 ? "bg-success/20 text-success" : item.score < 0 ? "bg-secondary/20 text-secondary" : "bg-white/10 text-white/70"}`}>{item.tag}</span>
-                        <span className="text-xs text-white/70">{item.note}</span>
-                      </div>
-                    ))}
+                    {day.items.map((item, i) => {
+                      const isNarrative = item.entryType === "narrative" && item.aiHook;
+                      return (
+                        <div key={i}
+                          className={`flex items-start gap-3 p-2 rounded-lg ${
+                            isNarrative ? "cursor-pointer hover:bg-white/[0.08]" : "hover:bg-white/[0.04]"
+                          }`}
+                          onClick={() => {
+                            if (isNarrative) {
+                              try { setNarrativeDetail(JSON.parse(item.aiHook!)); }
+                              catch { /* ignore parse errors */ }
+                            }
+                          }}
+                        >
+                          <span className="text-xs text-white/70 w-12 shrink-0">{item.time}</span>
+                          {isNarrative ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-primary/20 text-primary">📖 {item.tag}</span>
+                          ) : (
+                            <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${item.score > 0 ? "bg-success/20 text-success" : item.score < 0 ? "bg-secondary/20 text-secondary" : "bg-white/10 text-white/70"}`}>{item.tag}</span>
+                          )}
+                          <span className="text-xs text-white/70">{item.note}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -437,6 +489,7 @@ function DayListView({
       <div className="text-center text-xs text-white/70 mt-6 mb-4">
         本月共记录 {total} 个瞬间
       </div>
+      {NarrativeModal}
     </div>
   );
 }

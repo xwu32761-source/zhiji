@@ -399,7 +399,24 @@ function NarrativeModeContent() {
   };
 
   const handleSaveAndReturn = () => {
-    showToast("📖 已沉淀为最终报告", "success");
+    // 保存叙事分析为日记条目
+    if (narrativeResult) {
+      const now = new Date();
+      const entry: DiaryEntryData = {
+        id: crypto.randomUUID(),
+        entryType: "narrative",
+        coreTag: narrativeResult.title || "未命名",
+        intensity: null,
+        source: null,
+        note: narrativeResult.mirror || "",
+        aiHook: JSON.stringify(narrativeResult),
+        score: 0,
+        entryDate: todayStr(),
+        createdAt: now.toISOString(),
+      };
+      saveEntry(entry);
+    }
+    showToast("📖 已存入时光日记", "success");
     setChatPhase("input");
     setNarrativeResult(null);
     setNarrativeText("");
