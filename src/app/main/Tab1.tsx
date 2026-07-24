@@ -376,7 +376,7 @@ function PillarDetailView({
 
           {/* Continue answering button */}
           {Object.keys(allAnswers).length < TOTAL_QS_PER_PILLAR && (
-            <button onClick={() => { setBatchIndex(Math.floor(Object.keys(allAnswers).length / BATCH_SIZE)); setPhase("choosing"); }}
+            <button onClick={() => { setBatchIndex(Math.floor(Object.keys(allAnswers).length / BATCH_SIZE)); setPhase("answering"); }}
               className="w-full py-2.5 text-sm text-white bg-white/10 rounded-full mb-4 hover:bg-white/20 transition-colors"
             >
               继续答题
