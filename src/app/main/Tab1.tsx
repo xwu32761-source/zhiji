@@ -40,9 +40,9 @@ export default function Tab1Page() {
       const local = loadLocalData();
       if (!cancelled) setAllData(local);
 
-      // 尝试从 API 加载最新数据
+      // 尝试从 API 加载最新数据（仅当 API 返回有效数据时覆盖）
       const res = await apiFetchPillars();
-      if (!cancelled && res.ok && res.data.pillarData) {
+      if (!cancelled && res.ok && res.data.pillarData && Object.keys(res.data.pillarData).length > 0) {
         setAllData(res.data.pillarData as Record<number, PillarAnswers>);
       }
       if (!cancelled) setLoading(false);
