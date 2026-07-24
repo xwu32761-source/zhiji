@@ -193,7 +193,7 @@ function PillarDetailView({
   const answeredCount = Object.keys(existingData.answers).length;
 
   const [phase, setPhase] = useState<DetailPhase>(
-    answeredCount === 0 ? "answering" : "choosing"
+    answeredCount === 0 ? "answering" : "reviewing"
   );
   const [batchIndex, setBatchIndex] = useState(Math.floor(answeredCount / BATCH_SIZE));
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
