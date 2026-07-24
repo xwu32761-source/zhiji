@@ -13,7 +13,8 @@ import { useToast } from "@/components/shared/ToastManager";
 import { PillarAnswers } from "@/lib/types";
 
 const STORAGE_KEY = "zhiji_pillar_answers_v2";
-const TOTAL_QS = 48;
+const TOTAL_QS_PER_PILLAR = 48;
+const PASSING_QS = 3; // 答 3 题即可点亮一个支柱
 const BATCH_SIZE = 3;
 
 // localStorage fallback (offline support)
@@ -148,12 +149,12 @@ export default function Tab1Page() {
               <p className="text-sm font-semibold text-white tracking-wide">{p.name}</p>
               <p className="text-xs text-white/70 mt-1">
                 {status === "idle" && "待探索"}
-                {status === "progress" && `进行中 ${answeredCount}/${TOTAL_QS}`}
-                {status === "done" && `已锚定 ${TOTAL_QS}/${TOTAL_QS} ✓`}
+                {status === "progress" && `进行中 ${answeredCount} 题`}
+                {status === "done" && `已点亮 ✓`}
               </p>
               {status === "progress" && (
                 <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${(answeredCount / TOTAL_QS) * 100}%` }} />
+                  <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${(answeredCount / TOTAL_QS_PER_PILLAR) * 100}%` }} />
                 </div>
               )}
             </Card>
@@ -192,7 +193,7 @@ function PillarDetailView({
   const answeredCount = Object.keys(existingData.answers).length;
 
   const [phase, setPhase] = useState<DetailPhase>(
-    answeredCount === 0 ? "answering" : answeredCount >= TOTAL_QS ? "reviewing" : "choosing"
+    answeredCount === 0 ? "answering" : answeredCount >= PASSING_QS ? "reviewing" : "choosing"
   );
   const [batchIndex, setBatchIndex] = useState(Math.floor(answeredCount / BATCH_SIZE));
   const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({});
@@ -213,12 +214,10 @@ function PillarDetailView({
   // For "answering-all", calc remaining
   const remainingAll = useMemo(() => allQuestions.slice(answeredCount), [allQuestions, answeredCount]);
 
-  const isLastBatch = (batchIndex + 1) * BATCH_SIZE >= TOTAL_QS;
-
   const handleSubmit = () => {
     const newAll = { ...allAnswers, ...currentAnswers };
     const totalAnswered = Object.keys(newAll).length;
-    const isDone = totalAnswered >= TOTAL_QS;
+    const isDone = totalAnswered >= PASSING_QS;
 
     const data: PillarAnswers = {
       answers: newAll,
@@ -229,10 +228,10 @@ function PillarDetailView({
     onDataChange(data);
 
     if (isDone) {
-      showToast(`✅ ${pillar.name} 全部 ${TOTAL_QS} 题已答完！`, "success");
+      showToast(`✅ ${pillar.name} 已点亮！`, "success");
       setPhase("reviewing");
     } else {
-      showToast(`已保存！共 ${TOTAL_QS} 题，还剩 ${TOTAL_QS - totalAnswered} 题`, "success");
+      showToast(`已保存！答满 ${PASSING_QS} 题即可点亮`, "success");
       setCurrentAnswers({});
       setPhase("choosing");
     }
@@ -247,7 +246,7 @@ function PillarDetailView({
     const data: PillarAnswers = {
       answers: allAnswers,
       supplements: newList,
-      status: Object.keys(allAnswers).length >= TOTAL_QS ? "done" : "progress",
+      status: Object.keys(allAnswers).length >= PASSING_QS ? "done" : "progress",
     };
     onDataChange(data);
     showToast("📝 已补充", "success");
@@ -266,7 +265,7 @@ function PillarDetailView({
     };
     setAllAnswers(newAll);
     onDataChange(data);
-    showToast(`✅ ${pillar.name} 全部 ${TOTAL_QS} 题已答完！`, "success");
+    showToast(`✅ ${pillar.name} 已点亮！`, "success");
     setPhase("reviewing");
   };
 
@@ -279,7 +278,7 @@ function PillarDetailView({
         <div>
           <h2 className="text-lg font-bold text-white tracking-wide">{pillar.icon} {pillar.name}</h2>
           <p className="text-xs text-white/70">
-            已答 {Object.keys(allAnswers).length}/{TOTAL_QS} 题
+            已答 {Object.keys(allAnswers).length} 题（答满 {PASSING_QS} 题点亮）
             {supplements.length > 0 && ` · ${supplements.length} 条补充`}
           </p>
         </div>
@@ -291,7 +290,7 @@ function PillarDetailView({
           <p className="text-sm text-white/80 mb-4">
             {phase === "answering-all"
               ? `全部剩余 ${remainingAll.length} 题`
-              : `第 ${batchIndex * BATCH_SIZE + 1}-${Math.min((batchIndex + 1) * BATCH_SIZE, TOTAL_QS)} 题 / 共 ${TOTAL_QS} 题`}
+              : `第 ${batchIndex * BATCH_SIZE + 1}-${Math.min((batchIndex + 1) * BATCH_SIZE, TOTAL_QS_PER_PILLAR)} 题 / 共 ${TOTAL_QS_PER_PILLAR} 题（答满 ${PASSING_QS} 题点亮）`}
           </p>
 
           <div className="space-y-5 mb-6">
@@ -341,16 +340,16 @@ function PillarDetailView({
         <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 text-center animate-[fadeIn_0.3s_ease-out]">
           <p className="text-lg mb-1">✅</p>
           <p className="text-sm font-medium text-white mb-1">
-            已答 {Object.keys(allAnswers).length}/{TOTAL_QS} 题
+            已答 {Object.keys(allAnswers).length} 题
           </p>
-          <p className="text-xs text-white/70 mb-5">还要继续答题吗？</p>
+          <p className="text-xs text-white/70 mb-5">还要继续答题吗？（答满 {PASSING_QS} 题点亮）</p>
 
           <div className="flex flex-col gap-2 max-w-xs mx-auto">
             <Button variant="primary" size="md" onClick={() => { setBatchIndex((i) => i + 1); setPhase("answering"); }}>
               再答 3 题
             </Button>
             <Button variant="secondary" size="md" onClick={handleAnswerAll}>
-              答完全部（{TOTAL_QS - Object.keys(allAnswers).length} 题）
+              继续答题（剩 {TOTAL_QS_PER_PILLAR - Object.keys(allAnswers).length} 题）
             </Button>
             <Button variant="ghost" size="md" onClick={() => setPhase("reviewing")}>
               先不答了
@@ -363,21 +362,21 @@ function PillarDetailView({
       {phase === "reviewing" && (
         <div>
           {/* Status banner */}
-          <div className={`rounded-xl p-4 mb-4 ${Object.keys(allAnswers).length >= TOTAL_QS ? "bg-success/20" : "bg-white/10"}`}>
+          <div className={`rounded-xl p-4 mb-4 ${Object.keys(allAnswers).length >= PASSING_QS ? "bg-success/20" : "bg-white/10"}`}>
             <p className="text-sm font-medium text-white">
-              {Object.keys(allAnswers).length >= TOTAL_QS
-                ? `✅ ${pillar.name} 已完成全部 ${TOTAL_QS} 题`
-                : `📝 已答 ${Object.keys(allAnswers).length}/${TOTAL_QS} 题`}
+              {Object.keys(allAnswers).length >= PASSING_QS
+                ? `✅ ${pillar.name} 已点亮`
+                : `📝 已答 ${Object.keys(allAnswers).length} 题`}
             </p>
             <p className="text-xs text-white/70 mt-1">{supplements.length} 条补充</p>
           </div>
 
           {/* Continue answering button (if not done) */}
-          {Object.keys(allAnswers).length < TOTAL_QS && (
+          {Object.keys(allAnswers).length < PASSING_QS && (
             <button onClick={() => { setBatchIndex(Math.floor(Object.keys(allAnswers).length / BATCH_SIZE)); setPhase("answering"); }}
               className="w-full py-2.5 text-sm text-white bg-white/10 rounded-full mb-4 hover:bg-white/20 transition-colors"
             >
-              继续答题（还剩 {TOTAL_QS - Object.keys(allAnswers).length} 题）
+              继续答题（答满 {PASSING_QS} 题点亮）
             </button>
           )}
 
