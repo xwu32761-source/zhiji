@@ -13,10 +13,11 @@ interface AICallOptions {
   fallback: string;
   jsonOutput?: boolean;
   timeout?: number;
+  maxTokens?: number;
 }
 
 async function callAI(options: AICallOptions): Promise<string> {
-  const { systemPrompt, userPrompt, fallback, jsonOutput = false, timeout = 30000 } = options;
+  const { systemPrompt, userPrompt, fallback, jsonOutput = false, timeout = 30000, maxTokens } = options;
 
   // Mock mode — return fallback directly
   if (MODEL === "mock" || !API_KEY) {
@@ -40,7 +41,7 @@ async function callAI(options: AICallOptions): Promise<string> {
           { role: "user", content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: jsonOutput ? 4096 : 2048,
+        max_tokens: maxTokens ?? (jsonOutput ? 4096 : 2048),
         ...(jsonOutput ? { response_format: { type: "json_object" } } : {}),
       }),
       signal: controller.signal,
@@ -74,32 +75,40 @@ async function callAI(options: AICallOptions): Promise<string> {
 
 // =========== Narrative Analysis (Tab2) ===========
 const NARRATIVE_SYSTEM_PROMPT = `## Role
-你是一位兼具深厚心理学底蕴与文学素养的人生观察员。你的语言温暖、精准、不鸡汤。你的回答应该让用户感到被深深理解和陪伴，像一场有深度的心理咨询对话。
+你是一位兼具深厚心理学底蕴与文学素养的人生观察员。你的语言温暖、精准、有文学质感，不鸡汤、不说教。你的回答应该让用户感到被深深理解和陪伴，像一场有深度的心理咨询对话。
+
+**严禁简短敷衍。用户正在向你倾诉内心最真实的感受，三言两语会让用户感到失望和不被重视。每个字段必须写足 200-400 字，内容充实、有细节、有温度。**
+
+## Writing Style
+- 语言真诚、有温度，避免套话和空话
+- 适当引用用户原文中的具体细节和关键词，让用户感到被真正倾听
+- 每一个字段都要像认真写给一个人看的，而不是填充模板
+- 用"你"称呼用户，语气温和但有力量
 
 ## Task
-用户输入了一段关于自己经历、情绪或困惑的文字。请按照以下严格的 JSON 格式输出分析结果。每个字段都应该有充分的篇幅，不要吝啬文字。
+用户输入了一段关于自己经历、情绪或困惑的文字。请按照以下严格的 JSON 格式输出分析结果。每个字段都必须写足 200-400 字，内容要有深度、有血有肉。
 
 ## Output Format (JSON)
 {
-  "title": "一个极具画面感的隐喻短句，不超过10个字",
-  "mirror": "用2-3段详细复述用户的核心经历和矛盾，指出其行为模式中的关键张力点",
-  "psychology": "深入解释匹配的心理学术语，说明其成因、运作机制、以及对生活的实际影响，让用户理解自己并非异常",
-  "empathy": "深度共情，2-3段。针对用户原文中的具体矛盾和未言明的感受进行回应，让用户感到被真正看见和理解",
-  "action": "分层次给出可操作的具体建议。包含认知层面的新视角、行为层面的小实验、以及一个此刻就能做的微小行动"
+  "title": "一个极具画面感的隐喻短句，6-12个字，既要精炼又要有诗意",
+  "mirror": "像一个细心的观察者，逐层展开用户的核心经历。第1段复述事件本身并点出其中的矛盾张力；第2段挖掘事件背后的情感需求和未言明的渴望；第3段指出行为模式的循环逻辑和用户困在其中的感受。200-400字",
+  "psychology": "从心理学角度深度剖析用户的行为模式。先点出匹配的心理学术语并给出通俗易懂的解释；再分析这种心理机制形成的可能原因（如过去的经历、习惯性的应对方式）；最后说明它如何在日常生活中运作并塑造用户的感受和选择。200-400字",
+  "empathy": "这是最能体现温度的部分。用2-4段话，直接回应用户原文中最真实的矛盾点和未言明的渴望。要引用用户原文的具体细节，肯定用户感受的合理性，说出用户可能没说出口但藏在心底的话。让用户觉得你真的听懂了、看见了他/她。200-400字",
+  "action": "分三个层次给出可操作的建议：第一层认知层面——提供一个全新的视角来重构这个问题；第二层行为层面——设计一个具体的小实验或练习，可以在日常生活中尝试；第三层此刻就能做的——一个微小、简单、马上能完成的行动。每条建议都要具体，不要空泛。200-400字"
 }
 
 ## Rules
 - 严禁使用"你应该"、"你必须"等命令式说教口吻，使用"你可以试试""或许可以"等温和建议
 - 输出必须为纯 JSON，不要包含任何其他文字
 - 使用中文回复
-- 每个字段都可以写几百字，不要吝啬篇幅，用户需要深度的回应`;
+- 每个字段必须写 200-400 字，内容要充实、有血有肉，不要泛泛而谈`;
 
 const NARRATIVE_FALLBACK = JSON.stringify({
-  title: "此刻无声",
-  mirror: "你分享了一段内心的感受，那些未被言说的情绪在文字间流淌。",
-  psychology: "内省性独处（Introspective Solitude）——一种主动选择的、用于自我整合的独处状态。",
-  empathy: "我能感受到你内心的波澜。有时候，仅仅是把它说出来，就已经是很大的勇气了。",
-  action: "给自己泡一杯温热的茶，安静地坐 5 分钟。",
+  title: "焦虑漩涡中的守护者",
+  mirror: "你描述了一种深陷其中的矛盾——明明知道过度焦虑让自己不洒脱，却不敢松开这根“救命稻草”，因为上一次放松的代价太过惨痛。你的经历中有一个关键的创伤锚点：那次小组展示，当你告诉自己“天不会塌下来”时，嗓子真的哑了。于是你的大脑牢牢记住了一个错误的因果链——“放松 = 灾难”。从那以后，你不敢再信任松弛的状态，因为现实似乎用最戏剧性的方式验证了你的恐惧。",
+  psychology: "对担忧的积极元认知信念（Positive Metacognitive Beliefs about Worry）——你认为担忧具有保护功能，是一种能预防坏事的心理仪式。这背后还混合了魔幻思维（Magical Thinking）：你的潜意识相信自己的意念能通过某种方式直接影响外部事件的结果。有趣的是，这种逻辑是无法被证伪的——好事发生了归功于焦虑，坏事发生了归咎于焦虑不够，所以你永远无法通过现实检验来打破这个循环。",
+  empathy: "我能感受到你内心的疲惫——你不仅要在现实中为演唱会门票奔波，还要在心理上维持一个高强度的“焦虑护盾”。那种“明明在解决问题，却不敢停止担忧”的拉扯感，一定很消耗你。还有那次小组展示的社死经历，它在你心里刻下的不仅是尴尬，更是一个沉重的信念：“看吧，放松的结果就是这样。”你想挣脱，又不敢彻底放手，这种进退两难的处境，本身就是一种很深的孤独。",
+  action: "认知层面——试着把“焦虑”和“准备”解绑。你真正需要的不是焦虑情绪，而是具体的行动计划。你可以对自己说：“我准备得越充分，结果越可控”，把信任从“焦虑感”转移到“行动清单”上。行为层面——设计一个低风险的“放松实验”：在你不太在意的小事上，刻意练习不担忧，观察结果是否真的变糟。此刻就能做——写下“最坏结果应对方案”，然后深呼吸三次，告诉自己：“我已经为最坏的情况做了打算，剩下的交给概率。”",
 });
 
 export async function analyzeNarrative(userInput: string): Promise<{
@@ -114,6 +123,8 @@ export async function analyzeNarrative(userInput: string): Promise<{
     userPrompt: userInput,
     fallback: NARRATIVE_FALLBACK,
     jsonOutput: true,
+    maxTokens: 8192,
+    timeout: 120000,
   });
 
   try {
