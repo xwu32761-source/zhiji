@@ -111,3 +111,9 @@
 - **问题**：即使 prompt 要求 200-400字/字段，输出仍然偏短。
 - **根因**：逐字段设字数下限过于机械，模型倾向于产出刚好达标的最短内容。
 - **解决**：移除 per-field "200-400字" 硬约束，改为整篇目标 500-2000 字，根据用户输入深度自然调节。同时强化了每个字段的写作指引（逐层展开、引用原文、分三层建议等），让模型有更丰富的内容框架可循。
+
+### 3. DeepSeek 模型升级导致 API 全部走 fallback
+
+- **问题**：叙事模式始终输出固定的"焦虑漩涡中的守护者"（fallback），无论输入什么。
+- **根因**：① DeepSeek 淘汰了 `deepseek-chat` 模型，新模型名为 `deepseek-v4-pro` / `deepseek-v4-flash`，旧名返回 400 错误；② V4 是推理模型（reasoning model），先输出 `reasoning_content`（思考过程）再输出 `content`（回答），`max_tokens` 不足时 `content` 为空；③ `response_format: { type: "json_object" }` 与推理模型不兼容，不应传入。
+- **解决**：① `.env` 中 `AI_MODEL=deepseek-chat` → `AI_MODEL=deepseek-v4-flash`；② `callAI` 检测 `deepseek-v4-` 前缀的模型时跳过 `response_format`，并提高默认 `max_tokens` 至 16384；③ `analyzeNarrative` 改为从回复中用正则提取 JSON（推理模型可能在 JSON 前后输出多余文字）；④ 增加 `content` 为空时回退到 `reasoning_content` 的逻辑。

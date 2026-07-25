@@ -28,6 +28,11 @@ async function callAI(options: AICallOptions): Promise<string> {
   const timer = setTimeout(() => controller.abort(), timeout);
 
   try {
+    // 推理模型（deepseek-v4-*）不支持 response_format: json_object
+    // 它们先用 reasoning_content 思考，再输出 content
+    const isReasoningModel = MODEL.startsWith("deepseek-v4-");
+    const useJsonMode = jsonOutput && !isReasoningModel;
+
     const response = await fetch(`${BASE_URL}/v1/chat/completions`, {
       method: "POST",
       headers: {
@@ -41,8 +46,9 @@ async function callAI(options: AICallOptions): Promise<string> {
           { role: "user", content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: maxTokens ?? (jsonOutput ? 4096 : 2048),
-        ...(jsonOutput ? { response_format: { type: "json_object" } } : {}),
+        // 推理模型需要更多 token（reasoning + content）
+        max_tokens: maxTokens ?? (isReasoningModel ? 16384 : jsonOutput ? 4096 : 2048),
+        ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
       }),
       signal: controller.signal,
     });
@@ -56,7 +62,13 @@ async function callAI(options: AICallOptions): Promise<string> {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    let content = data.choices?.[0]?.message?.content || "";
+
+    // 推理模型有时 content 为空，尝试从 reasoning_content 提取
+    if (!content && isReasoningModel) {
+      content = data.choices?.[0]?.message?.reasoning_content || "";
+    }
+
     if (!content) {
       console.error("AI API: empty response");
       return fallback;
@@ -122,12 +134,17 @@ export async function analyzeNarrative(userInput: string): Promise<{
     systemPrompt: NARRATIVE_SYSTEM_PROMPT,
     userPrompt: userInput,
     fallback: NARRATIVE_FALLBACK,
-    jsonOutput: true,
-    maxTokens: 8192,
+    jsonOutput: false, // 推理模型不支持 json mode，靠 prompt 约束
+    maxTokens: 16384,  // 给推理留足空间
     timeout: 120000,
   });
 
+  // 尝试从回复中提取 JSON（模型可能输出多余文字）
   try {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
     return JSON.parse(raw);
   } catch {
     return JSON.parse(NARRATIVE_FALLBACK);
