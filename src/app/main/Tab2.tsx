@@ -422,6 +422,11 @@ function NarrativeModeContent() {
   if (chatPhase === "input") {
     return (
       <div>
+        {/* AI 数据处理告知 */}
+        <div className="flex items-start gap-2 p-3 mb-3 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60">
+          <span className="shrink-0 mt-0.5">🔒</span>
+          <span>你的文字将被发送至 DeepSeek 进行 AI 分析，不会用于模型训练。详见<a href="/privacy" className="text-primary hover:text-primary/80 underline underline-offset-2 ml-1">隐私政策</a>。</span>
+        </div>
         <textarea
           value={narrativeText}
           onChange={(e) => setNarrativeText(e.target.value)}

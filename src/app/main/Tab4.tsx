@@ -291,6 +291,12 @@ export default function Tab4Page() {
           还差 {pillarNeeded} 个支柱{entryNeeded > 0 && ` 和 ${entryNeeded} 条记录`}，初版说明书即可破茧。
         </p>
 
+        {/* AI 数据处理告知 */}
+        <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60 max-w-xs w-full">
+          <span className="shrink-0 mt-0.5">💡</span>
+          <span>生成报告时将把你的问卷和日记数据发送至 AI 服务商进行处理。</span>
+        </div>
+
         <Button variant="ghost" size="md" disabled>
           手册沉睡中……
         </Button>
@@ -331,6 +337,12 @@ export default function Tab4Page() {
           支柱已点亮，{quickNeeded > 0 ? `再记录 ${quickNeeded} 条情绪即可生成完整的「人生使用说明书」` : "可生成完整说明书"}
         </p>
 
+        {/* AI 数据处理告知 */}
+        <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60 max-w-xs w-full">
+          <span className="shrink-0 mt-0.5">💡</span>
+          <span>生成报告时将把你的问卷和日记数据发送至 AI 服务商进行处理。</span>
+        </div>
+
         <Button
           variant="primary"
           size="lg"
@@ -354,6 +366,12 @@ export default function Tab4Page() {
         <p className="text-sm text-white/70 mt-6 mb-8">
           数据已充足，可以唤醒你的专属说明书了。
         </p>
+
+        {/* AI 数据处理告知 */}
+        <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60 max-w-xs mx-auto">
+          <span className="shrink-0 mt-0.5">💡</span>
+          <span>生成报告时将把你的问卷和日记数据发送至 AI 服务商进行处理。</span>
+        </div>
 
         <Button
           variant="primary"
@@ -780,7 +798,12 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
       {letterSection && <LetterCard section={letterSection} />}
 
       {/* Bottom action bar */}
-      <div className="flex gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4 mt-6">
+      <div className="flex flex-col gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4 mt-6">
+        {/* AI 数据处理告知 */}
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60">
+          <span className="shrink-0 mt-0.5">💡</span>
+          <span>报告基于你的问卷和日记数据生成，数据将发送至 AI 服务商进行处理。</span>
+        </div>
         <Button variant="primary" size="md" className="flex-1">
           🔄 校准（剩余 3 次）
         </Button>
