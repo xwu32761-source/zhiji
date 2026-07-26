@@ -469,7 +469,7 @@ function DayListView({
                           ) : (
                             <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${item.score > 0 ? "bg-success/20 text-success" : item.score < 0 ? "bg-secondary/20 text-secondary" : "bg-white/10 text-white/70"}`}>{item.tag}</span>
                           )}
-                          <span className="text-xs text-white/70">{item.note}</span>
+                          {!isNarrative && <span className="text-xs text-white/70">{item.note}</span>}
                         </div>
                       );
                     })}
