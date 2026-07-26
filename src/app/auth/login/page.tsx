@@ -105,6 +105,17 @@ export default function LoginPage() {
             {status === "sending" ? "发送中…" : "发送登录链接"}
           </button>
         </form>
+
+        <p className="text-xs text-white/40 mt-6 leading-relaxed">
+          登录即表示你已阅读并同意{" "}
+          <a href="/privacy" className="text-white/60 hover:text-white/80 transition-colors underline underline-offset-2">
+            隐私政策
+          </a>
+          {" 和 "}
+          <a href="/terms" className="text-white/60 hover:text-white/80 transition-colors underline underline-offset-2">
+            用户协议
+          </a>
+        </p>
       </div>
     </div>
   );

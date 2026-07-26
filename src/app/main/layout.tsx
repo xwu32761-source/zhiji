@@ -61,6 +61,11 @@ export default function MainLayout() {
           {renderTab()}
         </main>
         <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <footer className="relative z-10 text-center py-3 max-w-2xl mx-auto">
+          <a href="/privacy" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">隐私</a>
+          <span className="text-[11px] text-white/20">·</span>
+          <a href="/terms" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">条款</a>
+        </footer>
       </div>
     </ToastProvider>
   );
