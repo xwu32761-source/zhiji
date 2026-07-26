@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { PillarAnswers } from "@/lib/types";
 import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
+import { exportAllData } from "@/lib/export";
 import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries } from "@/lib/api-client";
 
 type Tab4State = "empty" | "insufficient" | "pillar_ready" | "ready" | "generated";
@@ -254,6 +255,9 @@ export default function Tab4Page() {
         <Button variant="primary" size="md">
           ⚡ 去点亮第一块拼图
         </Button>
+        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors mt-6">
+          💾 导出全部数据
+        </button>
       </div>
     );
   }
@@ -300,6 +304,9 @@ export default function Tab4Page() {
         <Button variant="ghost" size="md" disabled>
           手册沉睡中……
         </Button>
+        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors mt-6">
+          💾 导出全部数据
+        </button>
       </div>
     );
   }
@@ -352,6 +359,9 @@ export default function Tab4Page() {
         >
           ✨ 生成人格初稿
         </Button>
+        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors mt-4">
+          💾 导出全部数据
+        </button>
       </div>
     );
   }
@@ -382,6 +392,9 @@ export default function Tab4Page() {
         >
           ✨ 唤醒我的使用手册
         </Button>
+        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors mt-6">
+          💾 导出全部数据
+        </button>
       </div>
     );
   }
@@ -426,6 +439,13 @@ export default function Tab4Page() {
           </Button>
         </div>
       )}
+
+      {/* Data export */}
+      <div className="text-center mt-8">
+        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+          💾 导出全部数据
+        </button>
+      </div>
     </div>
   );
 }
