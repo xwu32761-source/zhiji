@@ -42,6 +42,7 @@ async function saveEntry(entry: DiaryEntryData): Promise<void> {
     intensity: entry.intensity || undefined,
     source: entry.source || undefined,
     note: entry.note || undefined,
+    aiHook: entry.aiHook || undefined,
   });
   if (res.ok) {
     saveEntryLocal(entry);

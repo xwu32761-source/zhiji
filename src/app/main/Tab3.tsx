@@ -513,11 +513,29 @@ export default function Tab3Page() {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      setEntries(loadEntries());
+      const local = loadEntries();
+      setEntries(local);
       // 尝试从 API 加载最新数据
       const res = await apiFetchEntries();
       if (!cancelled && res.ok) {
-        setEntries(res.data.entries as DiaryEntryData[]);
+        // API 数据可能缺少 aiHook（旧数据或未传），从本地合并
+        // 使用 (entryDate + entryType + coreTag) 作为匹配键，因为本地和 API 的 id 不同
+        const localMap = new Map<string, DiaryEntryData>();
+        for (const e of local) {
+          const key = `${e.entryDate.slice(0, 10)}|${e.entryType}|${e.coreTag}`;
+          localMap.set(key, e);
+        }
+        const merged = (res.data.entries as DiaryEntryData[]).map((apiEntry) => {
+          if (!apiEntry.aiHook) {
+            const key = `${apiEntry.entryDate.slice(0, 10)}|${apiEntry.entryType}|${apiEntry.coreTag}`;
+            const match = localMap.get(key);
+            if (match?.aiHook) {
+              return { ...apiEntry, aiHook: match.aiHook };
+            }
+          }
+          return apiEntry;
+        });
+        setEntries(merged);
       }
       setLoaded(true);
     }

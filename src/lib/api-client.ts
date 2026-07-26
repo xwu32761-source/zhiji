@@ -67,6 +67,7 @@ export interface ApiEntry {
   source: string | null;
   note: string | null;
   score: number | null;
+  aiHook: string | null;
   entryDate: string;
   createdAt: string;
 }
@@ -87,6 +88,7 @@ export async function createEntry(data: {
   intensity?: number;
   source?: string;
   note?: string;
+  aiHook?: string;
 }) {
   return request<ApiEntry>("/entries", {
     method: "POST",

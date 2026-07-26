@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { entryType, coreTag, intensity, source, note } = body;
+    const { entryType, coreTag, intensity, source, note, aiHook } = body;
 
     // 类型校验
     if (!entryType || !VALID_ENTRY_TYPES.includes(entryType)) {
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         intensity: intensity || null,
         source: source || null,
         note: note || null,
+        aiHook: aiHook || null,
         score: scoreFromTag(coreTag),
         entryDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
       },
