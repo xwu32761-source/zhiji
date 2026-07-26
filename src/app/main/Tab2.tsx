@@ -307,6 +307,14 @@ function QuickModeContent({ onSaved }: { onSaved?: () => void }) {
 // =========== Narrative Mode Content ===========
 type ChatPhase = "input" | "report" | "chat";
 
+/** 将段落按换行拆分为多个 <p>，解决大段文字堆砌 */
+function renderParagraphs(text: string, className = "text-sm text-white/90 leading-relaxed"): React.ReactNode {
+  const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
+  return paragraphs.map((p, i) => (
+    <p key={i} className={`${className} ${i < paragraphs.length - 1 ? "mb-3" : ""}`}>{p.trim()}</p>
+  ));
+}
+
 function NarrativeModeContent() {
   const { showToast } = useToast();
   const [narrativeText, setNarrativeText] = useState("");
@@ -447,19 +455,19 @@ function NarrativeModeContent() {
           <div className="space-y-4">
             <div>
               <p className="text-xs text-white/70 mb-1">第一层 · 镜中之镜</p>
-              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.mirror}</p>
+              {renderParagraphs(narrativeResult.mirror)}
             </div>
             <div>
               <p className="text-xs text-white/70 mb-1">第二层 · 深层透视</p>
-              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.psychology}</p>
+              {renderParagraphs(narrativeResult.psychology)}
             </div>
             <div>
               <p className="text-xs text-white/70 mb-1">第三层 · 与你同在</p>
-              <p className="text-sm text-white/90 leading-relaxed">{narrativeResult.empathy}</p>
+              {renderParagraphs(narrativeResult.empathy)}
             </div>
             <div className="bg-white/10 rounded-lg p-4">
               <p className="text-xs text-white/70 mb-1 tracking-wide">✨ 一剂行动微光</p>
-              <p className="text-sm text-primary">{narrativeResult.action}</p>
+              {renderParagraphs(narrativeResult.action, "text-sm text-primary")}
             </div>
           </div>
         </div>
