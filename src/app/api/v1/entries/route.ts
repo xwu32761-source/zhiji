@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "intensity 必须在 1-5 之间" }, { status: 400 });
     }
 
+    const now = new Date();
     const entry = await prisma.diaryEntry.create({
       data: {
         userId: session.user.id,
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
         source: source || null,
         note: note || null,
         score: scoreFromTag(coreTag),
-        entryDate: new Date(),
+        entryDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
       },
     });
 

@@ -39,15 +39,17 @@ function groupEntriesByDate(entries: DiaryEntryData[]): DayGroup[] {
   const groups: Record<string, DayGroup> = {};
 
   entries.forEach((e) => {
-    if (!groups[e.entryDate]) {
-      const d = new Date(e.entryDate + "T00:00:00");
-      groups[e.entryDate] = {
-        date: e.entryDate,
+    // entryDate may be "2026-07-25" or "2026-07-25T14:51:40.889Z"
+    const dateOnly = e.entryDate.slice(0, 10);
+    if (!groups[dateOnly]) {
+      const d = new Date(dateOnly + "T00:00:00");
+      groups[dateOnly] = {
+        date: dateOnly,
         day: DAY_NAMES[d.getDay()],
         items: [],
       };
     }
-    groups[e.entryDate].items.push({
+    groups[dateOnly].items.push({
       time: e.createdAt.slice(11, 16),
       tag: e.coreTag || "未标记",
       intensity: e.intensity || 0,
