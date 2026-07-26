@@ -47,6 +47,14 @@ interface DayGroup {
   items: DayGroupItem[];
 }
 
+/** 将 UTC ISO 时间转为北京时间 HH:mm 格式 */
+function toBeijingTime(isoString: string): string {
+  const d = new Date(isoString);
+  const bjHours = (d.getUTCHours() + 8) % 24;
+  const bjMinutes = d.getUTCMinutes();
+  return `${String(bjHours).padStart(2, "0")}:${String(bjMinutes).padStart(2, "0")}`;
+}
+
 function groupEntriesByDate(entries: DiaryEntryData[]): DayGroup[] {
   const groups: Record<string, DayGroup> = {};
 
@@ -62,7 +70,7 @@ function groupEntriesByDate(entries: DiaryEntryData[]): DayGroup[] {
       };
     }
     groups[dateOnly].items.push({
-      time: e.createdAt.slice(11, 16),
+      time: toBeijingTime(e.createdAt),
       tag: e.coreTag || "未标记",
       intensity: e.intensity || 0,
       score: e.score || 0,
