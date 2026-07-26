@@ -157,3 +157,36 @@ UI层 → 数据层 → 存储层 → 外部依赖层 → 部署层
 **阶段三：改后验证** — 必须走真实用户流程确认修复生效，不能只靠 `npm run build`。
 
 已创建 memory 文件固化此流程到每次会话。
+
+---
+
+## 2026-07-26 时光日记数据不稳定 + 叙事条目重复
+
+### 1. 时光日记页条目显示不全（切 tab 后恢复）
+
+- **问题**：保存闪电定格或叙事条目后切到 Tab3，条目不全（有时只显示最新一条、有时只显示旧的），再切走切回（组件 remount）后恢复正常。
+- **首轮修复**：改 API merge 为"本地为主、API 补充"——无效，问题依旧。
+- **根因**：`saveEntry` 是 async 但未被 `await`，且 `apiFetchEntries()` 的 GET 响应在 Tab3 的 `init()` async 闭包中触发 `setEntries(merged)`，覆盖了 `setEntries(local)` 的结果。两条数据通路（localStorage ↔ API）存在 race condition，React 18 的 async 闭包使 `local` 变量在不同时序下不可靠。
+- **最终解决**：Tab3 `init()` 改为纯 localStorage 驱动——`setEntries(loadEntries())`，彻底移除 API merge。`saveEntry` 已改为先 `saveEntryLocal`（同步）再 `apiCreateEntry`（异步），localStorage 始终是最完整的数据源。
+
+### 2. 叙事条目重复显示（📖 标题 + 全文），之前修复过的 bug 复发
+
+- **问题**：叙事条目行显示"📖 标题 + mirror全文"，点击不弹窗。和 `2026-07-26` 第一节记录的叙事条目 bug 相同症状。
+- **根因**：
+  - API route 存储 `entryDate: new Date(now.getFullYear(), now.getMonth(), now.getDate())`，此 Date 通过 `NextResponse.json()` 序列化为 UTC ISO 字符串（北京时间 +8 区 → 倒退一天）。如北京 7/26 → `"2026-07-25T16:00:00.000Z"`。
+  - 本地存储 `entryDate` 为 `todayStr()` → `"2026-07-26"`。
+  - Tab3 的 API merge 用 `entryDate.slice(0, 10)` 作为匹配 key，本地和 API 的 key 因日期格式不同**永远不相等**。
+  - 这导致两个隐藏 bug 从未被发现：
+    1. aiHook 补充环节从未真正匹配到任何条目（但本地已有 aiHook，所以表面正常）
+    2. **"补充 API-only 条目"将每个叙事条目错误追加为重复副本**——API 副本的 `aiHook` 为 `null`（旧数据），`isNarrative` 判断失败，`note`（mirror 全文）暴露在外
+- **为何复发**：dev-log 记录的"最终解决"中的"存量数据合并逻辑"依赖日期格式匹配去重，但匹配从一开始就因日期格式不匹配而不工作。重复条目一直存在，只是未被注意到。
+- **漏掉原因**：修复时只验证了"本地条目有 aiHook"和"API 条目有 aiHook"，没有验证**匹配 key 是否真正相等**。没有检查 API 与本地 `entryDate` 的格式化差异。
+- **最终解决**：移除 Tab3 所有 API merge 逻辑，localStorage 为唯一数据源（`setEntries(loadEntries())`）。`saveEntryLocal` 始终在 `apiCreateEntry` 之前同步运行，本地数据始终完整。
+
+### 3. 自我复盘：本次修复违背了哪条原则
+
+| 原则 | 违背表现 |
+|------|----------|
+| 追数据链 | 第一次修"数据不全"时，只看了 merge 逻辑，没去检查 `apiFetchEntries` 返回的 `entryDate` 实际格式和 local 是否一致 |
+| 改后验证 | 上次改完只跑了 `npx tsc` 和检查了 UI 渲染，没用真实网络请求验证 merge 后的数组内容 |
+| 一层层排查 | 一直在 JSX 渲染层和 React state 层打转，没有去查 API 序列化后的实际 JSON 结构 |
