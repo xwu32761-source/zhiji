@@ -104,7 +104,6 @@ export default function Tab4Page() {
   const [state, setState] = useState<Tab4State>("insufficient");
   const [dataLoaded, setDataLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [generated, setGenerated] = useState(false);
   const [reportType, setReportType] = useState<ReportType>("none");
 
   const [pillarProgress, setPillarProgress] = useState(0);
@@ -112,6 +111,20 @@ export default function Tab4Page() {
 
   const pillarNeeded = Math.max(0, PILLAR_NEEDED - pillarProgress);
   const entryNeeded = Math.max(0, ENTRY_NEEDED - entryProgress);
+  const generated = state === "generated";
+
+  /** 从缓存恢复报告状态，同时从 localStorage 读取进度用于 canUpgrade 判断 */
+  function restoreCachedReport(content: string, type: ReportType) {
+    setReportContent(content);
+    setReportType(type);
+    setState("generated");
+    // 缓存路径也要读取进度，否则 canUpgrade 永远为 false
+    const localPillarData = getStorageItem<Record<number, PillarAnswers>>(PILLAR_STORAGE_KEY, {});
+    const localEntries = getStorageItem<any[]>(KEYS.DIARY_ENTRIES, []);
+    setPillarProgress(Object.values(localPillarData).filter((d) => d.status === "done").length);
+    setEntryProgress(localEntries.length);
+    setDataLoaded(true);
+  }
 
   // Read real progress from localStorage + API on mount
   useEffect(() => {
@@ -123,19 +136,11 @@ export default function Tab4Page() {
       const savedQuick = getStorageItem<string>(KEYS.REPORT_QUICK, "");
 
       if (savedReport) {
-        setReportContent(savedReport);
-        setReportType("full");
-        setGenerated(true);
-        setState("generated");
-        setDataLoaded(true);
+        restoreCachedReport(savedReport, "full");
         return;
       }
       if (savedQuick) {
-        setReportContent(savedQuick);
-        setReportType("quick");
-        setGenerated(true);
-        setState("generated");
-        setDataLoaded(true);
+        restoreCachedReport(savedQuick, "quick");
         return;
       }
 
@@ -207,8 +212,7 @@ export default function Tab4Page() {
     }
     setLoading(false);
     setReportType("full");
-    setGenerated(true);
-    setState("generated");
+        setState("generated");
   };
 
   const handleGenerateQuick = async () => {
@@ -234,8 +238,7 @@ export default function Tab4Page() {
     }
     setLoading(false);
     setReportType("quick");
-    setGenerated(true);
-    setState("generated");
+        setState("generated");
   };
 
   // 数据加载完成前不渲染，防止闪跳

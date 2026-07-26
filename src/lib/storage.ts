@@ -1,5 +1,7 @@
 // Local storage helpers with JSON safety
 
+import type { ConsentData } from "./types";
+
 const KEYS = {
   ANONYMOUS_ID: "zhiji_anonymous_id",
   USER_PROFILE: "zhiji_user_profile",
@@ -10,6 +12,7 @@ const KEYS = {
   REPORT_CONTENT: "zhiji_report_content",
   REPORT_QUICK: "zhiji_report_quick",
   REPORT_TYPE: "zhiji_report_type",
+  CONSENT: "zhiji_consent",
 } as const;
 
 export function getAnonymousId(): string {
@@ -72,6 +75,16 @@ export function saveWeeklyReport(report: WeeklyReportData): void {
   const reports = getWeeklyReports();
   reports[report.weekKey] = report;
   setStorageItem(KEYS.WEEKLY_REPORTS, reports);
+}
+
+// =========== Consent ===========
+
+export function getConsent(): ConsentData | null {
+  return getStorageItem<ConsentData | null>(KEYS.CONSENT, null);
+}
+
+export function saveConsent(consent: ConsentData): void {
+  setStorageItem(KEYS.CONSENT, consent);
 }
 
 export { KEYS };

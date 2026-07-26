@@ -25,6 +25,7 @@ model User {
   profiles     UserProfile[]
   diaryEntries DiaryEntry[]
   lifeManuals  LifeManual[]
+  consents     Consent[]
 
   // NextAuth 关联
   accounts Account[]
@@ -87,6 +88,23 @@ model LifeManual {
   @@index([userId])
   @@index([userId, isCurrent])
   @@map("life_manuals")
+}
+
+// ========== 用户同意记录 ==========
+
+model Consent {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  agreedToTerms Boolean   @default(false) @map("agreed_to_terms")
+  agreedToAI    Boolean   @default(false) @map("agreed_to_ai")
+  consentedAt   DateTime  @default(now()) @map("consented_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  revokedAt     DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId])
+  @@map("consents")
 }
 
 // ========== NextAuth 认证模型 ==========

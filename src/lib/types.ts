@@ -36,4 +36,10 @@ export interface UserProfileData {
   pillarCompleted: number[];
 }
 
+export interface ConsentData {
+  agreedToTerms: boolean;
+  agreedToAI: boolean;
+  consentedAt: string;
+}
+
 export type TabType = "1" | "2" | "3" | "4";
