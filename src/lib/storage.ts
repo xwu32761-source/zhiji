@@ -6,6 +6,7 @@ const KEYS = {
   PILLAR_ANSWERS: "zhiji_pillar_answers",
   ONBOARDING_DONE: "zhiji_onboarding_done",
   DIARY_ENTRIES: "zhiji_diary_entries",
+  WEEKLY_REPORTS: "zhiji_weekly_reports",
 } as const;
 
 export function getAnonymousId(): string {
@@ -43,6 +44,31 @@ export function getOnboardingDone(): boolean {
 
 export function setOnboardingDone(): void {
   setStorageItem(KEYS.ONBOARDING_DONE, true);
+}
+
+// =========== Weekly Reports ===========
+
+export interface WeeklyReportData {
+  weekKey: string;
+  summary: string;
+  pattern: string;
+  insight: string;
+  generatedAt: string;
+}
+
+export function getWeeklyReports(): Record<string, WeeklyReportData> {
+  return getStorageItem<Record<string, WeeklyReportData>>(KEYS.WEEKLY_REPORTS, {});
+}
+
+export function getWeeklyReport(weekKey: string): WeeklyReportData | null {
+  const reports = getWeeklyReports();
+  return reports[weekKey] || null;
+}
+
+export function saveWeeklyReport(report: WeeklyReportData): void {
+  const reports = getWeeklyReports();
+  reports[report.weekKey] = report;
+  setStorageItem(KEYS.WEEKLY_REPORTS, reports);
 }
 
 export { KEYS };

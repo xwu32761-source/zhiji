@@ -117,3 +117,43 @@
 - **问题**：叙事模式始终输出固定的"焦虑漩涡中的守护者"（fallback），无论输入什么。
 - **根因**：① DeepSeek 淘汰了 `deepseek-chat` 模型，新模型名为 `deepseek-v4-pro` / `deepseek-v4-flash`，旧名返回 400 错误；② V4 是推理模型（reasoning model），先输出 `reasoning_content`（思考过程）再输出 `content`（回答），`max_tokens` 不足时 `content` 为空；③ `response_format: { type: "json_object" }` 与推理模型不兼容，不应传入。
 - **解决**：① `.env` 中 `AI_MODEL=deepseek-chat` → `AI_MODEL=deepseek-v4-flash`；② `callAI` 检测 `deepseek-v4-` 前缀的模型时跳过 `response_format`，并提高默认 `max_tokens` 至 16384；③ `analyzeNarrative` 改为从回复中用正则提取 JSON（推理模型可能在 JSON 前后输出多余文字）；④ 增加 `content` 为空时回退到 `reasoning_content` 的逻辑。
+
+---
+
+## 2026-07-26 修复流程自省与标准化
+
+### 1. 叙事条目显示异常（多轮修复）
+
+- **问题**：叙事条目行显示"📖 标题 + mirror全文"，点击不弹窗。
+- **首轮修复**：隐藏 note 文字（`Tab3.tsx` 单行改动）—— 无效，因为根因是 API 数据通路。
+- **根因**：① `api-client.ts` 的 `createEntry` 和 `ApiEntry` 没有 `aiHook` 字段；② `POST /api/v1/entries` 不接受也不保存 `aiHook`；③ Tab3 的 `useEffect` 用 API 数据（缺 aiHook）完全覆盖了本地数据（有 aiHook）；④ `isNarrative` 判断失效。
+- **漏掉原因**：直接改渲染层，没有追溯完整的保存→传输→加载数据链。
+- **最终解决**：4 个文件联动修改（API 路由 + api-client + Tab2 + Tab3），并加入存量数据合并逻辑。
+
+### 2. 自我诊断：重复失败模式
+
+回顾近期 bug 修复，发现三个系统性模式：
+
+| 模式 | 表现 | 示例 |
+|------|------|------|
+| 治标不治本 | 看见症状直接改表现层，不追数据源头 | 叙事条目：改 JSX 隐藏文字而不是追 aiHook 为什么丢了 |
+| 单层排查 | 找到一个原因就动手，不全面排查所有可能层 | DeepSeek：改 prompt→改参数→改模型名→改部署，逐层试 |
+| 不改验证 | 只跑 `npm run build`，不走真实用户流程验证 | 两个 bug 都是"类型检查通过"但功能还是坏的 |
+
+### 3. 改进措施
+
+**三段式 Bug 修复流程（强制执行）：**
+
+**阶段一：追根溯源** — 动代码前，完整追踪数据链，每个环节记录实际值和预期值：
+```
+源 → 存 → 读 → 转换 → 渲染
+```
+
+**阶段二：分层排查** — 列出所有可能层，逐层判断：
+```
+UI层 → 数据层 → 存储层 → 外部依赖层 → 部署层
+```
+
+**阶段三：改后验证** — 必须走真实用户流程确认修复生效，不能只靠 `npm run build`。
+
+已创建 memory 文件固化此流程到每次会话。

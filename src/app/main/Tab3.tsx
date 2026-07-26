@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { DiaryEntryData } from "@/lib/types";
-import { getStorageItem, KEYS } from "@/lib/storage";
+import { getStorageItem, KEYS, getWeeklyReport, saveWeeklyReport, WeeklyReportData } from "@/lib/storage";
 import { fetchEntries as apiFetchEntries } from "@/lib/api-client";
+import {
+  getCurrentWeekInfo,
+  getWeekKey,
+  formatWeekLabel,
+  filterEntriesByWeek,
+  isWithinGenerationWindow,
+  getWeekNumber,
+  getWeekRange,
+  formatDate,
+  parseWeekKey,
+  getStartOfWeek,
+} from "@/lib/date-utils";
 
 const STORAGE_KEY = KEYS.DIARY_ENTRIES;
 const REGISTER_YEAR = 2026;
@@ -188,22 +200,115 @@ function RainbowRing({ data }: { data: { label: string; value: number; color: st
 }
 
 // =========== Weekly Report Modal ===========
-function WeeklyReportModal({ entries, onClose }: { entries: DiaryEntryData[]; onClose: () => void }) {
-  const summary = getWeekSummary(entries);
-  const totalEntries = entries.length;
+type ReportState = "loading" | "can_generate" | "generating" | "done" | "no_data" | "expired";
 
-  const emotionColors: Record<string, string> = {
-    "开心": "#8BCB9E", "平静": "#818CF8", "焦虑": "#F5A3A3",
-    "愤怒": "#E87373", "悲伤": "#9B8EC4", "爱/信任": "#F0C27A",
-  };
-  const tagFreq: Record<string, number> = {};
-  entries.forEach((e) => {
-    if (e.coreTag) tagFreq[e.coreTag] = (tagFreq[e.coreTag] || 0) + 1;
-  });
-  const ringData = Object.entries(tagFreq).slice(0, 6).map(([label, value]) => ({
-    label, value,
-    color: emotionColors[label] || "#ffffff30",
-  }));
+const emotionColors: Record<string, string> = {
+  "开心": "#8BCB9E", "平静": "#818CF8", "焦虑": "#F5A3A3",
+  "愤怒": "#E87373", "悲伤": "#9B8EC4", "爱/信任": "#F0C27A",
+};
+
+function WeeklyReportModal({ entries, onClose, initialWeekKey }: { entries: DiaryEntryData[]; onClose: () => void; initialWeekKey?: string }) {
+  const [weekKey, setWeekKey] = useState(initialWeekKey || getCurrentWeekInfo().weekKey);
+  const [report, setReport] = useState<WeeklyReportData | null>(null);
+  const [state, setState] = useState<ReportState>("loading");
+  const [error, setError] = useState<string | null>(null);
+
+  // 分析当前周的条目
+  const weekEntries = useMemo(() => filterEntriesByWeek(entries, weekKey), [entries, weekKey]);
+  const summary = useMemo(() => getWeekSummary(weekEntries), [weekEntries]);
+  const weekLabel = useMemo(() => formatWeekLabel(weekKey), [weekKey]);
+
+  // 情绪环图数据
+  const ringData = useMemo(() => {
+    const tagFreq: Record<string, number> = {};
+    weekEntries.forEach((e) => {
+      if (e.coreTag) tagFreq[e.coreTag] = (tagFreq[e.coreTag] || 0) + 1;
+    });
+    return Object.entries(tagFreq).slice(0, 6).map(([label, value]) => ({
+      label, value,
+      color: emotionColors[label] || "#ffffff30",
+    }));
+  }, [weekEntries]);
+
+  // 初始化状态
+  useEffect(() => {
+    const saved = getWeeklyReport(weekKey);
+    if (saved) {
+      setReport(saved);
+      setState("done");
+      return;
+    }
+    if (weekEntries.length === 0) {
+      setState("no_data");
+      return;
+    }
+    // 判断当前周是否是目标周，且是否在生成窗口内
+    const now = new Date();
+    const currentWeekKey = getWeekKey(now);
+    if (weekKey !== currentWeekKey) {
+      setState("expired");
+      return;
+    }
+    if (!isWithinGenerationWindow()) {
+      setState("expired");
+      return;
+    }
+    setState("can_generate");
+  }, [weekKey, weekEntries]);
+
+  const handleGenerate = useCallback(async () => {
+    setState("generating");
+    setError(null);
+    try {
+      const res = await fetch("/api/ai/weekly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: weekEntries }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "生成失败");
+      const newReport: WeeklyReportData = {
+        weekKey,
+        summary: data.summary || "",
+        pattern: data.pattern || "",
+        insight: data.insight || "",
+        generatedAt: new Date().toISOString(),
+      };
+      saveWeeklyReport(newReport);
+      setReport(newReport);
+      setState("done");
+    } catch (err: any) {
+      setError(err.message || "网络错误");
+      setState("can_generate");
+    }
+  }, [weekKey, weekEntries]);
+
+  const handlePrevWeek = useCallback(() => {
+    const { year, week } = parseWeekKey(weekKey);
+    const prevWeek = week > 1 ? week - 1 : 52;
+    const prevYear = week > 1 ? year : year - 1;
+    setWeekKey(`${prevYear}-W${String(prevWeek).padStart(2, "0")}`);
+    setReport(null);
+    setError(null);
+    setState("loading");
+  }, [weekKey]);
+
+  const handleNextWeek = useCallback(() => {
+    const { year, week } = parseWeekKey(weekKey);
+    const nextWeek = week < 52 ? week + 1 : 1;
+    const nextYear = week < 52 ? year : year + 1;
+    setWeekKey(`${nextYear}-W${String(nextWeek).padStart(2, "0")}`);
+    setReport(null);
+    setError(null);
+    setState("loading");
+  }, [weekKey]);
+
+  // 是否可以向前/向后翻（是否在当前周之后）
+  const canGoNext = (() => {
+    const now = new Date();
+    const currentKey = getWeekKey(now);
+    return weekKey < currentKey;
+  })();
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -212,63 +317,123 @@ function WeeklyReportModal({ entries, onClose }: { entries: DiaryEntryData[]; on
         <div className="p-6">
           <button onClick={onClose} className="float-right w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/70" aria-label="关闭">✕</button>
 
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-white tracking-wide">第 29 周 · 心灵航行报告</h2>
-            <p className="text-sm text-white/70 mt-1 leading-relaxed">
-              这一周，你记录了 {totalEntries} 个瞬间。
-            </p>
+          {/* 周导航 */}
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <button onClick={handlePrevWeek} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/70 transition-colors" aria-label="上一周">‹</button>
+            <h2 className="text-base font-bold text-white tracking-wide text-center">{weekLabel}</h2>
+            <button onClick={handleNextWeek} disabled={!canGoNext}
+              className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                canGoNext ? "hover:bg-white/10 text-white/70" : "text-white/30 cursor-not-allowed"
+              }`} aria-label="下一周"
+            >›</button>
           </div>
 
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-white/90 tracking-wide mb-3">情绪光谱图</p>
-            <div className="bg-white/5 rounded-xl p-3 flex justify-center">
-              <EmotionLineChart data={summary.scores} />
+          {state === "loading" && (
+            <div className="text-center py-10">
+              <p className="text-sm text-white/70">加载中...</p>
             </div>
-            <div className="flex justify-between text-xs text-white/70 mt-1 px-2">
-              <span>最低：{Math.min(...summary.scores.map((s) => s.score), 0)}</span>
-              <span>最高：{Math.max(...summary.scores.map((s) => s.score), 0)}</span>
-            </div>
-          </div>
+          )}
 
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-white/90 tracking-wide mb-3">本周情绪百宝箱</p>
-            <div className="flex items-center gap-4 bg-white/5 rounded-xl p-4">
-              <RainbowRing data={ringData} />
-              <div className="flex-1">
-                <p className="text-xs text-white/70 mb-2">Top 3 高频关键词</p>
-                <div className="space-y-1.5">
-                  {summary.topTags.map(([tag, count], i) => (
-                    <div key={tag} className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white/70">{i + 1}</span>
-                      <span className="text-sm text-white">#{tag}</span>
-                      <span className="text-xs text-white/70">{count}次</span>
-                    </div>
-                  ))}
+          {state === "no_data" && (
+            <div className="text-center py-10">
+              <p className="text-white/50 text-lg mb-2">📭</p>
+              <p className="text-sm text-white/70">本周暂无记录</p>
+            </div>
+          )}
+
+          {(state === "can_generate" || state === "generating" || state === "done") && (
+            <>
+              {/* 统计概览 */}
+              <div className="mb-6 text-center">
+                <p className="text-sm text-white/70">你记录了 <span className="text-white font-semibold">{weekEntries.length}</span> 个瞬间</p>
+              </div>
+
+              {/* 情绪折线图 */}
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-white/90 tracking-wide mb-3">情绪光谱图</p>
+                <div className="bg-white/5 rounded-xl p-3 flex justify-center">
+                  <EmotionLineChart data={summary.scores} />
+                </div>
+                <div className="flex justify-between text-xs text-white/70 mt-1 px-2">
+                  <span>最低：{Math.min(...summary.scores.map((s) => s.score), 0)}</span>
+                  <span>最高：{Math.max(...summary.scores.map((s) => s.score), 0)}</span>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-white/90 tracking-wide mb-2">🔗 模式识别：你未言明的剧本</p>
-            <div className="bg-white/10 rounded-xl p-4">
-              <p className="text-sm text-white/90 leading-relaxed">
-                基于你的 {totalEntries} 条记录，AI 分析功能即将上线。
-              </p>
-            </div>
-          </div>
+              {/* 情绪关键词 */}
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-white/90 tracking-wide mb-3">本周情绪百宝箱</p>
+                <div className="flex items-center gap-4 bg-white/5 rounded-xl p-4">
+                  <RainbowRing data={ringData} />
+                  <div className="flex-1">
+                    <p className="text-xs text-white/70 mb-2">Top 3 高频关键词</p>
+                    <div className="space-y-1.5">
+                      {summary.topTags.map(([tag, count], i) => (
+                        <div key={tag} className="flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white/70">{i + 1}</span>
+                          <span className="text-sm text-white">#{tag}</span>
+                          <span className="text-xs text-white/70">{count}次</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-white/90 tracking-wide mb-2">✨ 下周微光指引</p>
-            <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
-              <p className="text-sm text-white/90 mb-3 leading-relaxed">
-                持续记录，AI 将为你发掘情绪规律。
-              </p>
-            </div>
-          </div>
+              {/* AI 模式识别 */}
+              {report && (
+                <div className="mb-6">
+                  <p className="text-sm font-semibold text-white/90 tracking-wide mb-2">🔗 模式识别：你未言明的剧本</p>
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <p className="text-sm text-white/90 leading-relaxed">{report.pattern || "暂无分析"}</p>
+                  </div>
+                </div>
+              )}
 
-          <Button variant="primary" size="lg" className="w-full">📤 分享人格徽章</Button>
-          <p className="text-xs text-white/70 text-center mt-3">分享卡片仅展示成长趋势，不包含具体日记内容</p>
+              {/* AI 下周指引 */}
+              {report && (
+                <div className="mb-6">
+                  <p className="text-sm font-semibold text-white/90 tracking-wide mb-2">✨ 下周微光指引</p>
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
+                    <p className="text-sm text-primary leading-relaxed">{report.insight || "暂无指引"}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 错误提示 */}
+              {error && (
+                <p className="text-xs text-secondary text-center mb-3">{error}</p>
+              )}
+
+              {/* 生成按钮 */}
+              <div className="text-center">
+                {state === "can_generate" && (
+                  <Button variant="primary" size="lg" className="w-full" onClick={handleGenerate}>
+                    📊 生成本周心灵航行报告
+                  </Button>
+                )}
+                {state === "generating" && (
+                  <Button variant="primary" size="lg" className="w-full" loading disabled>
+                    正在生成中...
+                  </Button>
+                )}
+                {state === "done" && report && (
+                  <>
+                    <p className="text-xs text-white/70 mb-3">报告生成于 {report.generatedAt.slice(0, 10)}</p>
+                    <p className="text-xs text-white/50">📋 {report.summary}</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {state === "expired" && (
+            <div className="text-center py-6">
+              <p className="text-white/50 text-lg mb-2">🔒</p>
+              <p className="text-sm text-white/70">本周报告已关闭</p>
+              <p className="text-xs text-white/50 mt-2">周报仅限周日~周一生成，已错过窗口</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -508,6 +673,8 @@ export default function Tab3Page() {
   const [sortAsc, setSortAsc] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [reportWeekKey, setReportWeekKey] = useState<string | undefined>(undefined);
+  const [dismissedBanner, setDismissedBanner] = useState(false);
 
   // Load entries on mount
   useEffect(() => {
@@ -556,8 +723,43 @@ export default function Tab3Page() {
     setEntries(loadEntries());
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 检测是否显示周报生成提醒
+  const showGenerateBanner = useMemo(() => {
+    if (dismissedBanner || !loaded) return false;
+    // 仅在周日~周一显示
+    if (!isWithinGenerationWindow()) return false;
+    const currentInfo = getCurrentWeekInfo();
+    // 本周周报是否已生成
+    const existing = getWeeklyReport(currentInfo.weekKey);
+    if (existing) return false;
+    // 本周是否有数据
+    const weekEntries = filterEntriesByWeek(entries, currentInfo.weekKey);
+    return weekEntries.length > 0;
+  }, [loaded, entries, dismissedBanner]);
+
   return (
     <div>
+      {/* 周报生成提醒横幅 */}
+      {showGenerateBanner && view === "day" && (
+        <div className="flex items-center justify-between bg-gradient-to-r from-primary/20 to-secondary/20 backdrop-blur-xl border border-primary/30 rounded-xl px-4 py-3 mb-4 animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📊</span>
+            <div>
+              <p className="text-sm font-medium text-white tracking-wide">本周心灵航行报告已可生成</p>
+              <p className="text-xs text-white/70">记录你的情绪轨迹，获取 AI 深度分析</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="primary" size="sm" onClick={() => { setReportWeekKey(undefined); setShowReport(true); }}>
+              生成
+            </Button>
+            <button onClick={() => setDismissedBanner(true)} className="text-xs text-white/70 hover:text-white transition-colors px-2">
+              稍后
+            </button>
+          </div>
+        </div>
+      )}
+
       {view === "year" && (
         <YearPicker years={years} currentYear={NOW.year} onSelectYear={(y) => { setSelectedYear(y); setSelectedMonth(y === REGISTER_YEAR ? REGISTER_MONTH : 1); setView("month"); }} onBack={() => setView("month")} />
       )}
@@ -567,7 +769,7 @@ export default function Tab3Page() {
       {view === "day" && (
         <DayListView entries={entries} year={selectedYear} month={selectedMonth} sortAsc={sortAsc} expanded={expanded} onToggleExpand={setExpanded} onBack={() => setView("month")} onToggleSort={() => setSortAsc(!sortAsc)} onShowReport={() => setShowReport(true)} />
       )}
-      {showReport && <WeeklyReportModal entries={entries} onClose={() => setShowReport(false)} />}
+      {showReport && <WeeklyReportModal entries={entries} onClose={() => setShowReport(false)} initialWeekKey={reportWeekKey} />}
     </div>
   );
 }
