@@ -432,7 +432,7 @@ function NarrativeModeContent() {
           value={narrativeText}
           onChange={(e) => setNarrativeText(e.target.value)}
           placeholder="今天发生了什么？开心的、难过的、困惑的……我都想听。"
-          className="w-full h-48 p-4 rounded-lg border border-white/10 bg-white/5 text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30 mb-4 transition-all"
+          className="w-full h-48 p-4 rounded-lg bg-white/5 backdrop-blur-xl border border-white/[0.06] text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30 mb-4 transition-all"
         />
         <p className="text-xs text-white/70 text-right mb-3">
           {narrativeText.length} 字 {narrativeText.length < 5 ? "（至少 5 字）" : "✅"}
@@ -547,7 +547,7 @@ function NarrativeModeContent() {
           onKeyDown={handleKeyDown}
           placeholder="说说你的感受……"
           rows={2}
-          className="flex-1 p-3 rounded-xl border border-white/10 bg-white/5 text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30"
+          className="flex-1 p-3 rounded-xl bg-white/5 backdrop-blur-xl border border-white/[0.06] text-white text-sm resize-none placeholder-white/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30"
         />
         <button
           onClick={handleSendMessage}
