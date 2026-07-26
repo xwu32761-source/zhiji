@@ -118,14 +118,34 @@ export default function Tab4Page() {
     let cancelled = false;
 
     async function init() {
-      // 先从本地读取
+      // 优先显示缓存报告：已生成则跳过 API，立即渲染
+      const savedReport = getStorageItem<string>(KEYS.REPORT_CONTENT, "");
+      const savedQuick = getStorageItem<string>(KEYS.REPORT_QUICK, "");
+
+      if (savedReport) {
+        setReportContent(savedReport);
+        setReportType("full");
+        setGenerated(true);
+        setState("generated");
+        setDataLoaded(true);
+        return;
+      }
+      if (savedQuick) {
+        setReportContent(savedQuick);
+        setReportType("quick");
+        setGenerated(true);
+        setState("generated");
+        setDataLoaded(true);
+        return;
+      }
+
+      // 无缓存报告时才需要从 API 同步进度
       const localPillarData = getStorageItem<Record<number, PillarAnswers>>(PILLAR_STORAGE_KEY, {});
       const localEntries = getStorageItem<any[]>(KEYS.DIARY_ENTRIES, []);
 
       let doneCount = Object.values(localPillarData).filter((d) => d.status === "done").length;
       let entryCount = localEntries.length;
 
-      // 再尝试从 API 获取最新数据（仅当 API 返回有效数据时覆盖）
       const [pillarRes, entriesRes] = await Promise.all([
         apiFetchPillars(),
         apiFetchEntries(),
@@ -143,21 +163,7 @@ export default function Tab4Page() {
         setPillarProgress(doneCount);
         setEntryProgress(entryCount);
 
-        // 检查已生成的报告（完整版优先）
-        const savedReport = getStorageItem<string>(KEYS.REPORT_CONTENT, "");
-        const savedQuick = getStorageItem<string>(KEYS.REPORT_QUICK, "");
-
-        if (savedReport) {
-          setReportContent(savedReport);
-          setReportType("full");
-          setGenerated(true);
-          setState("generated");
-        } else if (savedQuick) {
-          setReportContent(savedQuick);
-          setReportType("quick");
-          setGenerated(true);
-          setState("generated");
-        } else if (doneCount >= PILLAR_NEEDED) {
+        if (doneCount >= PILLAR_NEEDED) {
           setState(entryCount >= ENTRY_NEEDED ? "ready" : "pillar_ready");
         } else if (doneCount === 0 && entryCount === 0) {
           setState("empty");
