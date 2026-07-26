@@ -335,6 +335,11 @@ V1.0（2026-07-15）：基于当前数据初版生成
 
 // ========== Book-style Report Renderer ==========
 
+/** Strip both **bold** and *italic* markers from inline text */
+function cleanMd(text: string): string {
+  return text.replace(/\*\*/g, "").replace(/\*(.*?)\*/g, "$1");
+}
+
 /** Parse "第一章" → "一" */
 function parseChapterNum(title: string): string {
   const m = title.match(/第([一二三四五六七八九十])章/);
@@ -343,9 +348,9 @@ function parseChapterNum(title: string): string {
 
 /** Chapter title bar — "CHAPTER 一" label + large serif heading */
 function ChapterTitle({ title }: { title: string }) {
-  const clean = title.replace(/^#{1,3}\s+/, "").replace(/\*\*/g, "");
-  const num = parseChapterNum(clean);
-  const display = clean.replace(/第.章[：:]?\s*/, "");
+  const raw = title.replace(/^#{1,3}\s+/, "");
+  const num = parseChapterNum(raw);
+  const display = cleanMd(raw).replace(/第.章[：:]?\s*/, "");
   return (
     <div className="mb-5">
       {num && (
@@ -354,7 +359,7 @@ function ChapterTitle({ title }: { title: string }) {
         </span>
       )}
       <h2 className="text-lg md:text-xl font-bold text-white font-serif tracking-wider mt-1 leading-snug">
-        {display || clean}
+        {display || cleanMd(raw)}
       </h2>
     </div>
   );
@@ -379,7 +384,7 @@ function EnergyCard({ text, index, type }: { text: string; index: number; type: 
         <span className={`w-5 h-5 rounded-full ${isCharge ? "bg-success/20 text-success" : "bg-secondary/20 text-secondary"} text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>
           {index + 1}
         </span>
-        <p className="text-sm text-white/90 leading-relaxed">{text.replace(/\*\*/g, "")}</p>
+        <p className="text-sm text-white/90 leading-relaxed">{cleanMd(text)}</p>
       </div>
     </div>
   );
@@ -392,7 +397,7 @@ function TipCard({ num, text }: { num: number; text: string }) {
       <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
         {num}
       </span>
-      <p className="text-sm text-white/90 leading-relaxed">{text.replace(/\*\*/g, "")}</p>
+      <p className="text-sm text-white/90 leading-relaxed">{cleanMd(text)}</p>
     </div>
   );
 }
@@ -404,7 +409,7 @@ function BulletList({ items }: { items: string[] }) {
       {items.map((item, i) => (
         <div key={i} className="flex items-start gap-2.5">
           <span className="text-primary/50 mt-1.5 shrink-0">‧</span>
-          <p className="text-sm text-white/85 leading-relaxed">{item.replace(/\*\*/g, "")}</p>
+          <p className="text-sm text-white/85 leading-relaxed">{cleanMd(item)}</p>
         </div>
       ))}
     </div>
@@ -503,9 +508,24 @@ function parseBodyBlocks(body: string) {
     const line = lines[i];
     const currentKey = key++;
 
+    // ## / ### sub‑heading (AI may output these instead of **bold**)
+    if (/^#{2,3}\s+/.test(line)) {
+      const text = cleanMd(line.replace(/^#{2,3}\s+/, ""));
+      if (/充能|🔋/.test(text)) {
+        nextEnergyType = "charge";
+      } else if (/耗能|⚡/.test(text)) {
+        nextEnergyType = "drain";
+      } else {
+        nextEnergyType = null;
+      }
+      nodes.push(<SectionTitle key={currentKey} text={text} />);
+      i++;
+      continue;
+    }
+
     // Bold sub‑heading (standalone **text**)
     if (/^\*\*[^*]+\*\*$/.test(line)) {
-      const text = line.replace(/\*\*/g, "");
+      const text = cleanMd(line);
       if (/充能|🔋/.test(text)) {
         nextEnergyType = "charge";
       } else if (/耗能|⚡/.test(text)) {
@@ -559,13 +579,19 @@ function parseBodyBlocks(body: string) {
       continue;
     }
 
+    // Skip bare number lines (AI may output "1" on its own as item marker)
+    if (/^\d+$/.test(line)) {
+      i++;
+      continue;
+    }
+
     // Short punchy line → callout; long paragraph → plain text
     if (line.length < 30 && !line.endsWith("。") && line.length > 0) {
-      nodes.push(<CalloutBlock key={currentKey} text={line} />);
+      nodes.push(<CalloutBlock key={currentKey} text={cleanMd(line)} />);
     } else {
       nodes.push(
         <p key={currentKey} className="text-sm text-white/85 leading-relaxed">
-          {line.replace(/\*\*/g, "")}
+          {cleanMd(line)}
         </p>,
       );
     }
