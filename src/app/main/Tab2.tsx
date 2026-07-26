@@ -34,8 +34,9 @@ function saveEntryLocal(entry: DiaryEntryData) {
   setStorageItem(STORAGE_KEY, entries);
 }
 
-/** 先尝试 API 保存，失败则存 localStorage */
+/** 先存本地（即时生效），再同步 API */
 async function saveEntry(entry: DiaryEntryData): Promise<void> {
+  saveEntryLocal(entry);
   const res = await apiCreateEntry({
     entryType: entry.entryType,
     coreTag: entry.coreTag || undefined,
@@ -44,11 +45,8 @@ async function saveEntry(entry: DiaryEntryData): Promise<void> {
     note: entry.note || undefined,
     aiHook: entry.aiHook || undefined,
   });
-  if (res.ok) {
-    saveEntryLocal(entry);
-  } else {
-    // API 不可用 → 保存到本地
-    saveEntryLocal(entry);
+  if (!res.ok) {
+    console.warn("API 同步失败，本地已保存");
   }
 }
 

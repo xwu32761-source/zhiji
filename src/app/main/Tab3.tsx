@@ -693,23 +693,25 @@ export default function Tab3Page() {
       // 尝试从 API 加载最新数据
       const res = await apiFetchEntries();
       if (!cancelled && res.ok) {
-        // API 数据可能缺少 aiHook（旧数据或未传），从本地合并
-        // 使用 (entryDate + entryType + coreTag) 作为匹配键，因为本地和 API 的 id 不同
-        const localMap = new Map<string, DiaryEntryData>();
-        for (const e of local) {
-          const key = `${e.entryDate.slice(0, 10)}|${e.entryType}|${e.coreTag}`;
-          localMap.set(key, e);
+        // 本地是数据源，API 仅补充 aiHook — 防止 API 数据不全时本地条目丢失
+        const apiMap = new Map<string, DiaryEntryData>();
+        for (const ae of res.data.entries as DiaryEntryData[]) {
+          const key = `${ae.entryDate.slice(0, 10)}|${ae.entryType}|${ae.coreTag || ""}`;
+          apiMap.set(key, ae);
         }
-        const merged = (res.data.entries as DiaryEntryData[]).map((apiEntry) => {
-          if (!apiEntry.aiHook) {
-            const key = `${apiEntry.entryDate.slice(0, 10)}|${apiEntry.entryType}|${apiEntry.coreTag}`;
-            const match = localMap.get(key);
-            if (match?.aiHook) {
-              return { ...apiEntry, aiHook: match.aiHook };
-            }
-          }
-          return apiEntry;
+        const merged = local.map((le) => {
+          const key = `${le.entryDate.slice(0, 10)}|${le.entryType}|${le.coreTag || ""}`;
+          const apiMatch = apiMap.get(key);
+          const ah = apiMatch?.aiHook || le.aiHook;
+          return ah ? { ...le, aiHook: ah } : le;
         });
+        // 补充 API 有但本地没有的条目（其他设备同步）
+        for (const ae of res.data.entries as DiaryEntryData[]) {
+          const key = `${ae.entryDate.slice(0, 10)}|${ae.entryType}|${ae.coreTag || ""}`;
+          if (!merged.some((m) => `${m.entryDate.slice(0, 10)}|${m.entryType}|${m.coreTag || ""}` === key)) {
+            merged.push(ae);
+          }
+        }
         setEntries(merged);
       }
       setLoaded(true);
@@ -724,12 +726,6 @@ export default function Tab3Page() {
     for (let y = REGISTER_YEAR; y <= NOW.year; y++) ys.push(y);
     return ys;
   }, []);
-
-  // Re-load entries when returning from detail (to pick up new data)
-  useEffect(() => {
-    if (!loaded) return;
-    setEntries(loadEntries());
-  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 检测是否显示周报生成提醒
   const showGenerateBanner = useMemo(() => {
