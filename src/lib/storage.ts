@@ -7,6 +7,7 @@ const KEYS = {
   ONBOARDING_DONE: "zhiji_onboarding_done",
   DIARY_ENTRIES: "zhiji_diary_entries",
   WEEKLY_REPORTS: "zhiji_weekly_reports",
+  REPORT_CONTENT: "zhiji_report_content",
 } as const;
 
 export function getAnonymousId(): string {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { PillarAnswers } from "@/lib/types";
-import { getStorageItem, KEYS } from "@/lib/storage";
+import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
 import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries } from "@/lib/api-client";
 
 type Tab4State = "empty" | "insufficient" | "ready" | "generated";
@@ -148,6 +148,15 @@ export default function Tab4Page() {
         } else {
           setState("insufficient");
         }
+
+        // 检查是否有已生成的说明书
+        const savedReport = getStorageItem<string>(KEYS.REPORT_CONTENT, "");
+        if (savedReport) {
+          setReportContent(savedReport);
+          setGenerated(true);
+          setState("generated");
+        }
+
         setDataLoaded(true);
       }
     }
@@ -173,9 +182,12 @@ export default function Tab4Page() {
         }),
       });
       const data = await res.json();
-      setReportContent(data.report || REPORT_FALLBACK);
+      const content = data.report || REPORT_FALLBACK;
+      setReportContent(content);
+      setStorageItem(KEYS.REPORT_CONTENT, content);
     } catch {
       setReportContent(REPORT_FALLBACK);
+      setStorageItem(KEYS.REPORT_CONTENT, REPORT_FALLBACK);
     }
     setLoading(false);
     setGenerated(true);
