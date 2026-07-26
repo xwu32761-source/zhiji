@@ -637,9 +637,6 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
 
       {/* Bottom action bar */}
       <div className="flex gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4 mt-6">
-        <Button variant="ghost" size="md" className="flex-1">
-          📤 即将上线
-        </Button>
         <Button variant="primary" size="md" className="flex-1">
           🔄 校准（剩余 3 次）
         </Button>
