@@ -332,7 +332,7 @@ function NarrativeModeContent() {
     } catch {
       // Fallback to mock
       setNarrativeResult({
-        title: "雨中的独行者",
+        title: "深夜独处的思考时刻",
         mirror: "你描述了一个人在深夜独自面对内心困惑的场景。",
         psychology: "内省性独处——一种主动选择的自我整合状态。",
         empathy: "那种既想被理解又害怕被打扰的矛盾，我懂。",
