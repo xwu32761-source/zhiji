@@ -5,7 +5,7 @@ import { useToast } from "@/components/shared/ToastManager";
 import { Button } from "@/components/ui/Button";
 import { DiaryEntryData } from "@/lib/types";
 import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
-import { createEntry as apiCreateEntry, fetchEntries as apiFetchEntries } from "@/lib/api-client";
+import { createEntry as apiCreateEntry } from "@/lib/api-client";
 
 const STORAGE_KEY = KEYS.DIARY_ENTRIES;
 
@@ -99,20 +99,8 @@ export default function Tab2Page() {
   const [todayCount, setTodayCount] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
-    async function init() {
-      // 先读本地
-      const local = loadEntries();
-      const today = todayStr();
-      setTodayCount(local.filter((e) => e.entryDate === today).length);
-      // 尝试从 API 获取最新
-      const res = await apiFetchEntries();
-      if (!cancelled && res.ok) {
-        setTodayCount(res.data.entries.filter((e) => e.entryDate === today).length);
-      }
-    }
-    init();
-    return () => { cancelled = true; };
+    const today = todayStr();
+    setTodayCount(loadEntries().filter((e) => e.entryDate === today).length);
   }, []);
 
   const handleSaved = () => {

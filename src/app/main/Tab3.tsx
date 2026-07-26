@@ -684,35 +684,39 @@ export default function Tab3Page() {
   const [reportWeekKey, setReportWeekKey] = useState<string | undefined>(undefined);
   const [dismissedBanner, setDismissedBanner] = useState(false);
 
-  // Load entries on mount
+  // Load entries on mount — localStorage 是唯一数据源，API 仅补充 aiHook
   useEffect(() => {
     let cancelled = false;
     async function init() {
       const local = loadEntries();
       setEntries(local);
-      // 尝试从 API 加载最新数据
+
+      // API 异步补充 aiHook，不参与 entries 构建（不替换、不减少）
       const res = await apiFetchEntries();
       if (!cancelled && res.ok) {
-        // 本地是数据源，API 仅补充 aiHook — 防止 API 数据不全时本地条目丢失
         const apiMap = new Map<string, DiaryEntryData>();
         for (const ae of res.data.entries as DiaryEntryData[]) {
           const key = `${ae.entryDate.slice(0, 10)}|${ae.entryType}|${ae.coreTag || ""}`;
           apiMap.set(key, ae);
         }
-        const merged = local.map((le) => {
-          const key = `${le.entryDate.slice(0, 10)}|${le.entryType}|${le.coreTag || ""}`;
-          const apiMatch = apiMap.get(key);
-          const ah = apiMatch?.aiHook || le.aiHook;
-          return ah ? { ...le, aiHook: ah } : le;
-        });
-        // 补充 API 有但本地没有的条目（其他设备同步）
-        for (const ae of res.data.entries as DiaryEntryData[]) {
-          const key = `${ae.entryDate.slice(0, 10)}|${ae.entryType}|${ae.coreTag || ""}`;
-          if (!merged.some((m) => `${m.entryDate.slice(0, 10)}|${m.entryType}|${m.coreTag || ""}` === key)) {
-            merged.push(ae);
+        setEntries((prev) => {
+          const updated = prev.map((le) => {
+            const key = `${le.entryDate.slice(0, 10)}|${le.entryType}|${le.coreTag || ""}`;
+            const apiMatch = apiMap.get(key);
+            if (apiMatch?.aiHook && !le.aiHook) {
+              return { ...le, aiHook: apiMatch.aiHook };
+            }
+            return le;
+          });
+          // 补充 API-only 条目（跨设备同步）
+          for (const ae of res.data.entries as DiaryEntryData[]) {
+            const key = `${ae.entryDate.slice(0, 10)}|${ae.entryType}|${ae.coreTag || ""}`;
+            if (!updated.some((m) => `${m.entryDate.slice(0, 10)}|${m.entryType}|${m.coreTag || ""}` === key)) {
+              updated.push(ae);
+            }
           }
-        }
-        setEntries(merged);
+          return updated;
+        });
       }
       setLoaded(true);
     }
