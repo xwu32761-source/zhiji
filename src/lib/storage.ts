@@ -8,6 +8,8 @@ const KEYS = {
   DIARY_ENTRIES: "zhiji_diary_entries",
   WEEKLY_REPORTS: "zhiji_weekly_reports",
   REPORT_CONTENT: "zhiji_report_content",
+  REPORT_QUICK: "zhiji_report_quick",
+  REPORT_TYPE: "zhiji_report_type",
 } as const;
 
 export function getAnonymousId(): string {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { generateReport } from "@/lib/ai";
+import { generateReport, generateQuickProfile } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
 
-    const { userProfile, recentEntries } = await req.json();
+    const { userProfile, recentEntries, quick } = await req.json();
+
+    // 人格初稿：仅基于支柱数据，不依赖记录
+    if (quick) {
+      const pillarJson = JSON.stringify(userProfile || {}, null, 2);
+      const report = await generateQuickProfile(pillarJson);
+      return NextResponse.json({ report });
+    }
 
     const userData = `
 ## 用户数据
