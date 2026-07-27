@@ -97,6 +97,7 @@ model Consent {
   userId        String    @map("user_id")
   agreedToTerms Boolean   @default(false) @map("agreed_to_terms")
   agreedToAI    Boolean   @default(false) @map("agreed_to_ai")
+  ageConfirmed  Boolean   @default(false) @map("age_confirmed")
   consentedAt   DateTime  @default(now()) @map("consented_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   revokedAt     DateTime? @map("revoked_at")

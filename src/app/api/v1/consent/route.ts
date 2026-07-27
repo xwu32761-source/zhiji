@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const agreedToTerms = Boolean(body.agreedToTerms);
     const agreedToAI = Boolean(body.agreedToAI);
+    const ageConfirmed = Boolean(body.ageConfirmed);
 
-    if (!agreedToTerms || !agreedToAI) {
+    if (!agreedToTerms || !agreedToAI || !ageConfirmed) {
       return NextResponse.json({ error: "需要同意所有条款" }, { status: 400 });
     }
 
@@ -24,12 +25,14 @@ export async function POST(request: NextRequest) {
       update: {
         agreedToTerms,
         agreedToAI,
+        ageConfirmed,
         revokedAt: null,
       },
       create: {
         userId: session.user.id,
         agreedToTerms,
         agreedToAI,
+        ageConfirmed,
       },
     });
 

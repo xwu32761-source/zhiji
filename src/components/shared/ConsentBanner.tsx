@@ -10,9 +10,10 @@ interface ConsentBannerProps {
 export function ConsentBanner({ onConsent }: ConsentBannerProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToAI, setAgreedToAI] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const allChecked = agreedToTerms && agreedToAI;
+  const allChecked = agreedToTerms && agreedToAI && ageConfirmed;
 
   const handleConfirm = () => {
     if (!allChecked) return;
@@ -20,13 +21,14 @@ export function ConsentBanner({ onConsent }: ConsentBannerProps) {
     saveConsent({
       agreedToTerms,
       agreedToAI,
+      ageConfirmed,
       consentedAt: new Date().toISOString(),
     });
     // Fire-and-forget server sync — don't block on it
     fetch("/api/v1/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agreedToTerms, agreedToAI }),
+      body: JSON.stringify({ agreedToTerms, agreedToAI, ageConfirmed }),
     }).catch(() => {
       /* server sync is best-effort */
     });
@@ -97,6 +99,24 @@ export function ConsentBanner({ onConsent }: ConsentBannerProps) {
             />
             <span className="text-sm text-white/80 leading-relaxed">
               我了解我的数据（问卷答案、日记条目、叙事文本）将被发送至 AI 服务商进行相关分析处理
+            </span>
+          </label>
+
+          <label
+            className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+              ageConfirmed
+                ? "bg-primary/10 border border-primary/30"
+                : "bg-white/5 border border-white/[0.06] hover:bg-white/[0.08]"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-white/30 bg-white/5 text-primary focus:ring-primary/50 accent-primary"
+            />
+            <span className="text-sm text-white/80 leading-relaxed">
+              我确认已年满 18 周岁，或在父母/监护人陪同下使用本服务
             </span>
           </label>
         </div>

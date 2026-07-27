@@ -39,6 +39,7 @@ export interface UserProfileData {
 export interface ConsentData {
   agreedToTerms: boolean;
   agreedToAI: boolean;
+  ageConfirmed: boolean;
   consentedAt: string;
 }
 
