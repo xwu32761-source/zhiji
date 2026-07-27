@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "隐私政策 — 知几",
+  title: "隐私政策 — 知己",
 };
 
 export default function PrivacyPage() {
@@ -15,14 +15,14 @@ export default function PrivacyPage() {
           <div>
             <h2 className="text-base font-semibold text-white mb-2">1. 数据控制者</h2>
             <p>
-              知几（以下简称"我们"）是您个人数据的控制者。如您对本隐私政策有任何疑问，
+              知己（以下简称"我们"）是您个人数据的控制者。如您对本隐私政策有任何疑问，
               可通过以下方式联系我们：<span className="text-white/60">（联系邮箱待设置）</span>
             </p>
           </div>
 
           <div>
             <h2 className="text-base font-semibold text-white mb-2">2. 我们收集的数据</h2>
-            <p>在您使用知几服务时，我们收集以下类型的数据：</p>
+            <p>在您使用知己服务时，我们收集以下类型的数据：</p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li><strong>账号信息</strong>：您的电子邮件地址（用于登录验证）</li>
               <li><strong>人格问卷答案</strong>：您在人生支柱模块中提交的所有问卷选择</li>

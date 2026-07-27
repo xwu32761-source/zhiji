@@ -41,7 +41,7 @@ export function ConsentBanner({ onConsent }: ConsentBannerProps) {
         {/* Header */}
         <div className="text-center mb-6">
           <div className="text-4xl mb-3">🔖</div>
-          <h2 className="text-lg font-bold text-white tracking-wide">欢迎使用知几</h2>
+          <h2 className="text-lg font-bold text-white tracking-wide">欢迎使用知己</h2>
           <p className="text-sm text-white/60 mt-2 leading-relaxed">
             在开始之前，请确认以下事项
           </p>

@@ -67,7 +67,7 @@ export function SOSButton() {
             </div>
 
             <p className="text-[11px] text-white/30 text-center mt-5 leading-relaxed">
-              知几不提供心理咨询或医疗诊断。如果你正处在危机中，请立即拨打上面的电话。
+              知己不提供心理咨询或医疗诊断。如果你正处在危机中，请立即拨打上面的电话。
             </p>
           </div>
         </div>

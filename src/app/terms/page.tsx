@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "用户协议 — 知几",
+  title: "用户协议 — 知己",
 };
 
 export default function TermsPage() {
@@ -15,8 +15,8 @@ export default function TermsPage() {
           <div>
             <h2 className="text-base font-semibold text-white mb-2">1. 服务说明</h2>
             <p>
-              知几是一款自我觉察与情绪追踪工具，帮助用户记录情绪、探索自我、
-              生成个人洞察报告。<strong className="text-white">知几不提供心理咨询、
+              知己是一款自我觉察与情绪追踪工具，帮助用户记录情绪、探索自我、
+              生成个人洞察报告。<strong className="text-white">知己不提供心理咨询、
               心理治疗或医疗诊断服务</strong>。所有 AI 生成的内容仅供参考，
               不应被视为专业心理健康建议。
             </p>
@@ -53,7 +53,7 @@ export default function TermsPage() {
                   AI 的分析可能不准确、不完整或存在偏差，不应作为决策的唯一依据
                 </li>
                 <li>
-                  知几的 AI 模型由 DeepSeek 提供，您的数据将被发送至 DeepSeek 服务器进行处理
+                  知己的 AI 模型由 DeepSeek 提供，您的数据将被发送至 DeepSeek 服务器进行处理
                 </li>
                 <li>
                   如果您需要专业心理健康服务，请咨询持证心理咨询师或医生
@@ -65,7 +65,7 @@ export default function TermsPage() {
           <div>
             <h2 className="text-base font-semibold text-white mb-2">5. 付费服务</h2>
             <p>
-              知几目前提供免费服务。未来可能推出付费会员服务（如深度校准会员），
+              知己目前提供免费服务。未来可能推出付费会员服务（如深度校准会员），
               届时将另行公布服务条款和价格。付费服务一经购买，根据相关法律法规，
               数字化产品原则上不支持无理由退款。
             </p>
@@ -74,7 +74,7 @@ export default function TermsPage() {
           <div>
             <h2 className="text-base font-semibold text-white mb-2">6. 知识产权</h2>
             <p>
-              知几应用程序、品牌名称、Logo 及相关知识产权的所有权归我们所有。
+              知己应用程序、品牌名称、Logo 及相关知识产权的所有权归我们所有。
               您记录的内容（日记、问卷答案等）归您所有。AI 生成的内容
               （分析报告、洞察等）归我们所有，但您可以在本服务范围内自由使用。
             </p>
