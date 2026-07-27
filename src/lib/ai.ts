@@ -8,8 +8,10 @@ const MODEL = process.env.AI_MODEL || "deepseek-chat";
 const BASE_URL = "https://api.deepseek.com";
 
 interface AICallOptions {
-  systemPrompt: string;
-  userPrompt: string;
+  systemPrompt?: string;
+  userPrompt?: string;
+  /** 多轮对话消息数组，提供后忽略 systemPrompt + userPrompt */
+  messages?: { role: "system" | "user" | "assistant"; content: string }[];
   fallback: string;
   jsonOutput?: boolean;
   timeout?: number;
@@ -17,7 +19,7 @@ interface AICallOptions {
 }
 
 async function callAI(options: AICallOptions): Promise<string> {
-  const { systemPrompt, userPrompt, fallback, jsonOutput = false, timeout = 30000, maxTokens } = options;
+  const { systemPrompt, userPrompt, messages, fallback, jsonOutput = false, timeout = 30000, maxTokens } = options;
 
   // Mock mode — return fallback directly
   if (MODEL === "mock" || !API_KEY) {
@@ -33,6 +35,12 @@ async function callAI(options: AICallOptions): Promise<string> {
     const isReasoningModel = MODEL.startsWith("deepseek-v4-");
     const useJsonMode = jsonOutput && !isReasoningModel;
 
+    // 构造 messages：优先使用多轮对话数组
+    const apiMessages = messages ?? [
+      { role: "system" as const, content: systemPrompt || "" },
+      { role: "user" as const, content: userPrompt || "" },
+    ];
+
     const response = await fetch(`${BASE_URL}/v1/chat/completions`, {
       method: "POST",
       headers: {
@@ -41,10 +49,7 @@ async function callAI(options: AICallOptions): Promise<string> {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        messages: apiMessages,
         temperature: 0.7,
         // 推理模型需要更多 token（reasoning + content）
         max_tokens: maxTokens ?? (isReasoningModel ? 16384 : jsonOutput ? 4096 : 2048),
@@ -156,26 +161,52 @@ export async function analyzeNarrative(userInput: string): Promise<{
 }
 
 // =========== Chat Reply (Tab2 再聊聊) ===========
+
+interface ChatContext {
+  narrativeText: string;
+  narrativeResult: {
+    title: string;
+    mirror: string;
+    psychology: string;
+    empathy: string;
+    action: string;
+  };
+}
+
 const CHAT_SYSTEM_PROMPT = `## Role
-你是一位温暖的、善于倾听和引导的心理陪伴者。你的风格是"温柔的苏格拉底"——通过提问引导用户自我觉察。
+你是一位温暖、善于倾听的心理陪伴者。你正在和用户深入探讨TA刚刚分享的经历与感受。
+
+## Core Task
+用户之前写了一篇关于自己经历的文字，你已对其进行了分析。现在用户想继续聊聊同一个话题——可能是补充更多细节，或者对分析有疑问。你的任务是承接上文，自然对话。
 
 ## Rules
-- 每次回复不超过 80 字
-- 以提问结尾，引导用户自我探索
-- 语气温柔、笃定、不评判
-- 根据用户的上一条消息自然承接，不要跳转到无关话题
+- 回应要承接对话历史，不要每次都抛新问题——用户回答完问题后，你应该先回应TA的回答，再决定是否追问
+- 回复长度自然，不设上限，该深入时深入，该简短时简短
+- 语气温暖、笃定、不评判
 - 使用"你"称呼用户，不说"您"
-- 如果用户问的是与心理/情绪/自我探索无关的问题（如医学、技术、生活琐事），温和地说"这个话题超出了聊天陪伴的范围，不如我们再聊聊你的感受？"`;
+- 如果用户问的是与心理/情绪/自我探索无关的问题（如医学、技术、生活琐事），温和地说"这个话题超出了聊天陪伴的范围，不如我们再聊聊你的感受？"
+- 不要每次都以提问结尾——让对话像真实的聊天一样自然流动`;
 
 const CHAT_FALLBACKS = [
-  "嗯，我在听。那种感觉，像是——你在描述一个不只属于今天的故事。能告诉我更多关于这个感觉的细节吗？",
-  "我很好奇——当这件事发生的时候，你的身体有什么感觉吗？",
-  "如果给这个感受一个颜色，它会是什么颜色？",
+  "嗯，我在听。你说的这些让我想到——你内心真正在意的，可能不是事情本身，而是它触动了你哪部分感受。",
+  "我理解你的感受。有时候我们需要的不是答案，只是有人确认我们的感受是合理的。",
+  "你说得很清楚。这件事对你来说很重要的原因是——它触及了你最在意的那个点。",
 ];
 
-export async function getChatReply(conversation: { role: "user" | "ai"; text: string }[]): Promise<string> {
-  const messages = [
-    { role: "system" as const, content: CHAT_SYSTEM_PROMPT },
+export async function getChatReply(
+  conversation: { role: "user" | "ai"; text: string }[],
+  context?: ChatContext,
+): Promise<string> {
+  // 构建系统提示：注入叙事上下文
+  const contextBlock = context
+    ? `\n\n## 对话背景（用户之前写的内容）\n用户原始叙述："""${context.narrativeText}"""\n\n你的分析：\n- 标题：${context.narrativeResult.title}\n- 镜像：${context.narrativeResult.mirror}\n- 心理学：${context.narrativeResult.psychology}\n- 共情：${context.narrativeResult.empathy}\n- 行动：${context.narrativeResult.action}\n\n以上是你们之前讨论的内容。请基于这个背景继续与用户对话。`
+    : "";
+
+  const systemPrompt = CHAT_SYSTEM_PROMPT + contextBlock;
+
+  // 将完整对话历史传给 AI
+  const apiMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    { role: "system", content: systemPrompt },
     ...conversation.map((m) => ({
       role: m.role === "ai" ? "assistant" as const : "user" as const,
       content: m.text,
@@ -183,10 +214,10 @@ export async function getChatReply(conversation: { role: "user" | "ai"; text: st
   ];
 
   const raw = await callAI({
-    systemPrompt: CHAT_SYSTEM_PROMPT,
-    userPrompt: conversation[conversation.length - 1]?.text || "",
+    messages: apiMessages,
     fallback: CHAT_FALLBACKS[Math.floor(Math.random() * CHAT_FALLBACKS.length)],
-    timeout: 15000,
+    timeout: 30000,
+    maxTokens: 4096,
   });
 
   return raw;

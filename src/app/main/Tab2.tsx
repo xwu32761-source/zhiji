@@ -383,7 +383,11 @@ function NarrativeModeContent() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          narrativeText,
+          narrativeResult,
+        }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "ai", text: data.reply || "我在这里听着。" }]);

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
 
-    const { messages } = await req.json();
+    const { messages, narrativeText, narrativeResult } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const reply = await getChatReply(messages);
+    const reply = await getChatReply(messages, { narrativeText, narrativeResult });
 
     return NextResponse.json({ reply });
   } catch (err: any) {
