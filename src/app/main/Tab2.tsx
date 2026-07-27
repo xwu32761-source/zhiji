@@ -326,6 +326,19 @@ function NarrativeModeContent() {
   const [chatInput, setChatInput] = useState("");
   const [aiTyping, setAiTyping] = useState(false);
 
+  // 危机关键词检测
+  const CRISIS_KEYWORDS = ["自杀", "想死", "不想活", "伤害自己", "自伤", "自残", "绝望", "活不下去", "结束生命"];
+  function textContainsCrisisKeywords(text: string): boolean {
+    return CRISIS_KEYWORDS.some((kw) => text.includes(kw));
+  }
+  const crisisDetected = chatPhase === "report" && narrativeResult && (
+    textContainsCrisisKeywords(narrativeText) ||
+    textContainsCrisisKeywords(narrativeResult.title || "") ||
+    textContainsCrisisKeywords(narrativeResult.mirror || "") ||
+    textContainsCrisisKeywords(narrativeResult.psychology || "") ||
+    textContainsCrisisKeywords(narrativeResult.empathy || "")
+  );
+
   const handleNarrativeSubmit = async () => {
     if (narrativeText.trim().length < 5) return;
     setNarrativeLoading(true);
@@ -455,6 +468,26 @@ function NarrativeModeContent() {
   if (chatPhase === "report") {
     return (
       <div>
+        {/* 危机关键词告警 */}
+        {crisisDetected && (
+          <div className="bg-red-500/15 border border-red-500/30 rounded-xl p-4 mb-4 animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-start gap-3">
+              <span className="text-xl shrink-0 mt-0.5">🚨</span>
+              <div>
+                <p className="text-sm font-medium text-red-300 mb-1">我们注意到了你提到的内容</p>
+                <p className="text-xs text-red-200/80 leading-relaxed mb-3">
+                  如果你正在经历痛苦或产生伤害自己的想法，请立即联系专业机构。你不需要独自面对。
+                </p>
+                <a
+                  href="tel:400-161-9995"
+                  className="inline-block bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+                >
+                  📞 立即拨打 400-161-9995（24 小时）
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
         <DisclaimerBanner type="narrative" className="mb-4" />
         <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 mb-4 animate-[fadeIn_0.4s_ease-out]">
           <p className="text-sm text-white/70 mb-1 tracking-wide">🔖 心灵回响</p>

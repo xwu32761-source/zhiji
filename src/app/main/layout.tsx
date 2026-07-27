@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { ToastProvider } from "@/components/shared/ToastManager";
 import { StarsBackground } from "@/components/ui/stars";
 import { ConsentBanner } from "@/components/shared/ConsentBanner";
+import { SOSButton } from "@/components/shared/SOSButton";
 import { TabType } from "@/lib/types";
 import { getConsent } from "@/lib/storage";
 import Tab1Page from "./Tab1";
@@ -78,10 +79,16 @@ export default function MainLayout() {
           {renderTab()}
         </main>
         <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
-        <footer className="relative z-10 text-center py-3 max-w-2xl mx-auto">
-          <a href="/privacy" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">隐私</a>
-          <span className="text-[11px] text-white/20">·</span>
-          <a href="/terms" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">条款</a>
+        <SOSButton />
+        <footer className="relative z-10 text-center py-4 max-w-2xl mx-auto space-y-1">
+          <p className="text-[11px] text-red-400/60">
+            🆘 全国心理援助热线：<a href="tel:400-161-9995" className="underline underline-offset-2 hover:text-red-400/90 transition-colors">400-161-9995</a>（24 小时）
+          </p>
+          <div>
+            <a href="/privacy" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">隐私</a>
+            <span className="text-[11px] text-white/20">·</span>
+            <a href="/terms" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">条款</a>
+          </div>
         </footer>
       </div>
     </ToastProvider>
