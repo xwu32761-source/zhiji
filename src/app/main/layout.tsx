@@ -81,9 +81,6 @@ export default function MainLayout() {
         <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
         <SOSButton />
         <footer className="relative z-10 text-center py-4 max-w-2xl mx-auto space-y-1">
-          <p className="text-[11px] text-white/20">
-            全国心理援助热线：<a href="tel:400-161-9995" className="underline underline-offset-2 hover:text-white/40 transition-colors">400-161-9995</a>（24 小时）
-          </p>
           <div>
             <a href="/privacy" className="text-[11px] text-white/30 hover:text-white/50 transition-colors mx-2">隐私</a>
             <span className="text-[11px] text-white/20">·</span>
