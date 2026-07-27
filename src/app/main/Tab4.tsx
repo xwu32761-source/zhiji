@@ -109,6 +109,9 @@ export default function Tab4Page() {
 
   const [pillarProgress, setPillarProgress] = useState(0);
   const [entryProgress, setEntryProgress] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const pillarNeeded = Math.max(0, PILLAR_NEEDED - pillarProgress);
   const entryNeeded = Math.max(0, ENTRY_NEEDED - entryProgress);
@@ -214,6 +217,27 @@ export default function Tab4Page() {
     setLoading(false);
     setReportType("full");
         setState("generated");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/v1/data/delete", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "注销失败");
+      }
+      // 清除 localStorage 全部数据
+      Object.values(KEYS).forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      try { localStorage.removeItem("zhiji_pillar_answers_v2"); } catch {}
+      // 跳转到首页
+      window.location.href = "/";
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "注销失败，请稍后重试");
+    }
+    setDeleting(false);
+    setShowDeleteConfirm(false);
   };
 
   const handleGenerateQuick = async () => {
@@ -440,11 +464,62 @@ export default function Tab4Page() {
         </div>
       )}
 
-      {/* Data export */}
-      <div className="text-center mt-8">
-        <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors">
-          💾 导出全部数据
-        </button>
+      {/* 数据管理 */}
+      <div className="mt-10 pt-6 border-t border-white/10">
+        <div className="text-center">
+          <button
+            onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+            className="text-xs text-white/30 hover:text-white/60 transition-colors"
+          >
+            ⚙️ 数据管理
+          </button>
+        </div>
+
+        {showDeleteConfirm && (
+          <div className="mt-4 max-w-xs mx-auto bg-red-500/5 border border-red-500/20 rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
+            <p className="text-sm text-red-300/90 mb-1 font-medium">⚠️ 注销账号</p>
+            <p className="text-xs text-white/50 mb-4 leading-relaxed">
+              此操作将删除你的全部数据，30 天内登录可恢复。
+              本地缓存的数据需要手动清除。
+            </p>
+            {deleteError && (
+              <p className="text-xs text-red-400 mb-3">{deleteError}</p>
+            )}
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
+                className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
+                disabled={deleting}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-xs text-white bg-red-500/70 hover:bg-red-500/90 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "注销中…" : "确认注销"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 数据操作按钮组 */}
+        {!showDeleteConfirm && (
+          <div className="flex items-center justify-center gap-4 mt-3">
+            <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+              💾 导出全部数据
+            </button>
+            <span className="text-white/10">|</span>
+            <button onClick={() => {
+              Object.values(KEYS).forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+              try { localStorage.removeItem("zhiji_pillar_answers_v2"); } catch {}
+              window.location.reload();
+            }} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+              🗑️ 清除本地数据
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
