@@ -6,6 +6,7 @@ import { ProgressRing } from "@/components/ui/ProgressRing";
 import { PillarAnswers } from "@/lib/types";
 import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
 import { exportAllData } from "@/lib/export";
+import { DisclaimerBanner } from "@/components/shared/DisclaimerBanner";
 import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries } from "@/lib/api-client";
 
 type Tab4State = "empty" | "insufficient" | "pillar_ready" | "ready" | "generated";
@@ -447,6 +448,13 @@ export default function Tab4Page() {
                 : "💡 记录更多情绪与行为后，可生成更完整的「人生使用说明书」"}
             </div>
           )}
+        </div>
+      )}
+
+      {/* AI 免责声明 */}
+      {generated && reportContent && (
+        <div className="mb-4">
+          <DisclaimerBanner type="report" />
         </div>
       )}
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/shared/ToastManager";
 import { Button } from "@/components/ui/Button";
+import { DisclaimerBanner } from "@/components/shared/DisclaimerBanner";
 import { DiaryEntryData } from "@/lib/types";
 import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
 import { createEntry as apiCreateEntry } from "@/lib/api-client";
@@ -454,6 +455,7 @@ function NarrativeModeContent() {
   if (chatPhase === "report") {
     return (
       <div>
+        <DisclaimerBanner type="narrative" className="mb-4" />
         <div className="bg-white/5 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 mb-4 animate-[fadeIn_0.4s_ease-out]">
           <p className="text-sm text-white/70 mb-1 tracking-wide">🔖 心灵回响</p>
           <p className="text-lg font-serif text-primary mb-4">{narrativeResult.title}</p>

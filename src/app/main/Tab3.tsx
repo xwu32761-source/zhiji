@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
+import { DisclaimerBanner } from "@/components/shared/DisclaimerBanner";
 import { DiaryEntryData } from "@/lib/types";
 import { getStorageItem, KEYS, getWeeklyReport, saveWeeklyReport, WeeklyReportData } from "@/lib/storage";
 import {
@@ -386,6 +387,13 @@ function WeeklyReportModal({ entries, onClose, initialWeekKey }: { entries: Diar
                   </div>
                 </div>
               </div>
+
+              {/* AI 免责声明 */}
+              {report && (
+                <div className="mb-6">
+                  <DisclaimerBanner type="weekly" />
+                </div>
+              )}
 
               {/* AI 模式识别 */}
               {report && (
