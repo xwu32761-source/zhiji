@@ -11,6 +11,7 @@ import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import EmailProvider from "next-auth/providers/email";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 const resendApiKey = process.env.RESEND_API_KEY || "";
 const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
@@ -66,6 +67,12 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      if (user.id) {
+        logAudit({ userId: user.id, action: "login", resourceType: "session" }).catch(() => {});
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

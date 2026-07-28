@@ -43,4 +43,11 @@ export interface ConsentData {
   consentedAt: string;
 }
 
+export interface QuotaData {
+  refreshUsed: number;
+  refreshLimit: number;
+  resetMonth: string;
+  lastRefreshedAt: string | null;
+}
+
 export type TabType = "1" | "2" | "3" | "4";

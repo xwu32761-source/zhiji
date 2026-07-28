@@ -5,6 +5,8 @@
  * 原则三（数据隔离）：所有请求自动携带 session cookie，后端按 session 隔离数据
  */
 
+import type { QuotaData } from "@/lib/types";
+
 const BASE = "/api/v1";
 
 async function request<T>(
@@ -93,6 +95,18 @@ export async function createEntry(data: {
   return request<ApiEntry>("/entries", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+// ========= Quota =========
+
+export async function fetchQuota() {
+  return request<QuotaData>("/quota");
+}
+
+export async function useQuotaRefresh() {
+  return request<{ ok: boolean; quota: QuotaData }>("/quota/use", {
+    method: "POST",
   });
 }
 

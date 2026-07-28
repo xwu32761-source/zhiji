@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -33,6 +34,14 @@ export async function GET() {
         lifeManuals,
       },
     };
+
+    // 异步记录审计日志
+    logAudit({
+      userId,
+      action: "export",
+      resourceType: "data",
+      detail: { entryCount: diaryEntries.length, hasLifeManual: lifeManuals.length > 0 },
+    }).catch(() => {});
 
     return NextResponse.json(payload);
   } catch (error) {

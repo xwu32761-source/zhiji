@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { PillarAnswers } from "@/lib/types";
-import { getStorageItem, setStorageItem, KEYS } from "@/lib/storage";
+import { getStorageItem, setStorageItem, KEYS, clearLocalData } from "@/lib/storage";
 import { exportAllData } from "@/lib/export";
 import { DisclaimerBanner } from "@/components/shared/DisclaimerBanner";
-import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries } from "@/lib/api-client";
+import { useToast } from "@/components/shared/ToastManager";
+import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries, fetchQuota, useQuotaRefresh } from "@/lib/api-client";
+import type { QuotaData } from "@/lib/types";
 
 type Tab4State = "empty" | "insufficient" | "pillar_ready" | "ready" | "generated";
 type ReportType = "none" | "quick" | "full";
@@ -111,8 +113,13 @@ export default function Tab4Page() {
   const [pillarProgress, setPillarProgress] = useState(0);
   const [entryProgress, setEntryProgress] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const { showToast } = useToast();
+
+  const [quota, setQuota] = useState<QuotaData | null>(null);
 
   const pillarNeeded = Math.max(0, PILLAR_NEEDED - pillarProgress);
   const entryNeeded = Math.max(0, ENTRY_NEEDED - entryProgress);
@@ -156,12 +163,14 @@ export default function Tab4Page() {
       let doneCount = Object.values(localPillarData).filter((d) => d.status === "done").length;
       let entryCount = localEntries.length;
 
-      const [pillarRes, entriesRes] = await Promise.all([
+      const [pillarRes, entriesRes, quotaRes] = await Promise.all([
         apiFetchPillars(),
         apiFetchEntries(),
+        fetchQuota(),
       ]);
 
       if (!cancelled) {
+        if (quotaRes.ok) setQuota(quotaRes.data);
         if (pillarRes.ok && pillarRes.data.pillarData && Object.keys(pillarRes.data.pillarData).length > 0) {
           const apiData = pillarRes.data.pillarData as Record<number, PillarAnswers>;
           doneCount = Object.values(apiData).filter((d) => d.status === "done").length;
@@ -265,6 +274,53 @@ export default function Tab4Page() {
     setLoading(false);
     setReportType("quick");
         setState("generated");
+  };
+
+  /** 校准 / 重新生成报告（消耗一次配额） */
+  const handleRefresh = async () => {
+    // 1. 配额扣减
+    const quotaRes = await useQuotaRefresh();
+    if (!quotaRes.ok) {
+      alert("本月校准次数已用完（免费 3 次/月），后续将支持开通会员无限校准。");
+      const fresh = await fetchQuota();
+      if (fresh.ok) setQuota(fresh.data);
+      return;
+    }
+    setQuota(quotaRes.data.quota);
+
+    // 2. 重新生成完整报告
+    setLoading(true);
+    try {
+      const pillarData = getStorageItem<Record<number, PillarAnswers>>(PILLAR_STORAGE_KEY, {});
+      const entries = getStorageItem<any[]>(KEYS.DIARY_ENTRIES, []);
+      const res = await fetch("/api/ai/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userProfile: { pillarAnswers: pillarData },
+          recentEntries: entries,
+        }),
+      });
+      const data = await res.json();
+      const content = data.report || REPORT_FALLBACK;
+      setReportContent(content);
+      setStorageItem(KEYS.REPORT_CONTENT, content);
+      setStorageItem(KEYS.REPORT_TYPE, "full");
+    } catch {
+      setReportContent(REPORT_FALLBACK);
+      setStorageItem(KEYS.REPORT_CONTENT, REPORT_FALLBACK);
+      setStorageItem(KEYS.REPORT_TYPE, "full");
+    }
+    setLoading(false);
+    setReportType("full");
+    setState("generated");
+  };
+
+  const handleClearData = () => {
+    clearLocalData();
+    setShowClearConfirm(false);
+    showToast("本地数据已清除", "info");
+    setTimeout(() => window.location.reload(), 800);
   };
 
   // 数据加载完成前不渲染，防止闪跳
@@ -463,6 +519,19 @@ export default function Tab4Page() {
         <ReportContentRenderer markdown={reportContent} />
       )}
 
+      {/* Bottom action bar — 校准 / 重新生成 */}
+      {generated && reportContent && (
+        <div className="flex flex-col gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4 mt-6">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60">
+            <span className="shrink-0 mt-0.5">💡</span>
+            <span>报告基于你的问卷和日记数据生成，数据将发送至 AI 服务商进行处理。</span>
+          </div>
+          <Button variant="primary" size="md" className="flex-1" onClick={handleRefresh} loading={loading}>
+            🔄 校准{quota ? `（剩余 ${quota.refreshLimit - quota.refreshUsed} 次）` : ""}
+          </Button>
+        </div>
+      )}
+
       {/* Upgrade CTA */}
       {canUpgrade && (
         <div className="mt-4 mb-2 text-center">
@@ -519,13 +588,33 @@ export default function Tab4Page() {
               💾 导出全部数据
             </button>
             <span className="text-white/10">|</span>
-            <button onClick={() => {
-              Object.values(KEYS).forEach((k) => { try { localStorage.removeItem(k); } catch {} });
-              try { localStorage.removeItem("zhiji_pillar_answers_v2"); } catch {}
-              window.location.reload();
-            }} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+            <button onClick={() => setShowClearConfirm(true)} className="text-xs text-white/30 hover:text-white/60 transition-colors">
               🗑️ 清除本地数据
             </button>
+          </div>
+        )}
+
+        {/* 清除本地数据确认弹窗 */}
+        {showClearConfirm && (
+          <div className="mt-4 max-w-xs mx-auto bg-white/5 border border-white/[0.06] rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
+            <p className="text-sm text-white/90 mb-1 font-medium">⚠️ 清除本地数据</p>
+            <p className="text-xs text-white/50 mb-4 leading-relaxed">
+              将清除全部本地缓存数据（问卷答案、日记、报告等），此操作不可撤销。建议先导出数据。
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleClearData}
+                className="px-4 py-2 rounded-lg text-xs text-white bg-secondary/70 hover:bg-secondary/90 transition-colors"
+              >
+                确认清除
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -899,18 +988,6 @@ function ReportContentRenderer({ markdown }: { markdown: string }) {
       ))}
 
       {letterSection && <LetterCard section={letterSection} />}
-
-      {/* Bottom action bar */}
-      <div className="flex flex-col gap-3 sticky bottom-16 bg-[#0a0a14]/80 backdrop-blur-xl py-3 -mx-4 px-4 mt-6">
-        {/* AI 数据处理告知 */}
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-white/5 border border-white/[0.06] text-xs text-white/60">
-          <span className="shrink-0 mt-0.5">💡</span>
-          <span>报告基于你的问卷和日记数据生成，数据将发送至 AI 服务商进行处理。</span>
-        </div>
-        <Button variant="primary" size="md" className="flex-1">
-          🔄 校准（剩余 3 次）
-        </Button>
-      </div>
     </div>
   );
 }

@@ -26,6 +26,8 @@ model User {
   diaryEntries DiaryEntry[]
   lifeManuals  LifeManual[]
   consents     Consent[]
+  quotas       Quota[]
+  auditLogs    AuditLog[]
 
   // NextAuth 关联
   accounts Account[]
@@ -106,6 +108,44 @@ model Consent {
 
   @@unique([userId])
   @@map("consents")
+}
+
+// ========== 用户配额（月度报告刷新次数） ==========
+
+model Quota {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  refreshUsed     Int       @default(0) @map("refresh_used")
+  refreshLimit    Int       @default(3) @map("refresh_limit")
+  resetMonth      String    @map("reset_month")   // "2026-07" 格式
+  lastRefreshedAt DateTime? @map("last_refreshed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId])
+  @@map("quotas")
+}
+
+// ========== 审计日志 ==========
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  action       String   // "login" | "export" | "delete_account" | "generate_report" | "payment"
+  resourceType String   @map("resource_type")  // "session" | "data" | "account" | "report" | "payment"
+  resourceId   String?  @map("resource_id")
+  detail       Json?    // 额外上下文
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }
 
 // ========== NextAuth 认证模型 ==========

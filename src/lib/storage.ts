@@ -87,4 +87,15 @@ export function saveConsent(consent: ConsentData): void {
   setStorageItem(KEYS.CONSENT, consent);
 }
 
+/** 清除所有本地缓存数据，返回被清除的 key 列表 */
+export function clearLocalData(): string[] {
+  const removed: string[] = [];
+  for (const k of Object.values(KEYS)) {
+    try { localStorage.removeItem(k); removed.push(k); } catch {}
+  }
+  // 旧版支柱数据 key
+  try { localStorage.removeItem("zhiji_pillar_answers_v2"); removed.push("zhiji_pillar_answers_v2"); } catch {}
+  return removed;
+}
+
 export { KEYS };

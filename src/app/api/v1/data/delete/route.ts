@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -11,6 +12,17 @@ export async function POST() {
     }
 
     const userId = session.user.id;
+    const ipAddress = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip");
+    const userAgent = req.headers.get("user-agent");
+
+    // 记录审计日志（在删除之前写入）
+    await logAudit({
+      userId,
+      action: "delete_account",
+      resourceType: "account",
+      ipAddress,
+      userAgent,
+    });
 
     // 软删除：设置 deletedAt，30 天后由清理任务永久删除
     const now = new Date();
