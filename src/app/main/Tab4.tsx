@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { PillarAnswers } from "@/lib/types";
@@ -8,7 +9,7 @@ import { getStorageItem, setStorageItem, KEYS, clearLocalData } from "@/lib/stor
 import { exportAllData } from "@/lib/export";
 import { DisclaimerBanner } from "@/components/shared/DisclaimerBanner";
 import { useToast } from "@/components/shared/ToastManager";
-import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries, fetchQuota, useQuotaRefresh } from "@/lib/api-client";
+import { fetchPillars as apiFetchPillars, fetchEntries as apiFetchEntries, fetchQuota, useQuotaRefresh, migrateData } from "@/lib/api-client";
 import type { QuotaData } from "@/lib/types";
 
 type Tab4State = "empty" | "insufficient" | "pillar_ready" | "ready" | "generated";
@@ -117,7 +118,15 @@ export default function Tab4Page() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  // 数据迁移状态
+  const [sourceUuid, setSourceUuid] = useState("");
+  const [showMigrationConfirm, setShowMigrationConfirm] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationError, setMigrationError] = useState("");
+  const [copied, setCopied] = useState(false);
+
   const { showToast } = useToast();
+  const { data: session } = useSession();
 
   const [quota, setQuota] = useState<QuotaData | null>(null);
 
@@ -321,6 +330,39 @@ export default function Tab4Page() {
     setShowClearConfirm(false);
     showToast("本地数据已清除", "info");
     setTimeout(() => window.location.reload(), 800);
+  };
+
+  const currentUserId = session?.user?.id;
+
+  const handleCopyUuid = () => {
+    if (!currentUserId) return;
+    navigator.clipboard.writeText(currentUserId).then(() => {
+      setCopied(true);
+      showToast("UUID 已复制", "success");
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      showToast("复制失败", "warning");
+    });
+  };
+
+  const handleMigrate = async () => {
+    const uuid = sourceUuid.trim();
+    if (!uuid) return;
+    setMigrating(true);
+    setMigrationError("");
+    try {
+      const res = await migrateData(uuid);
+      if (!res.ok) {
+        throw new Error(res.error || "迁移失败");
+      }
+      showToast("数据迁移成功！", "success");
+      setSourceUuid("");
+      setShowMigrationConfirm(false);
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+      setMigrationError(e instanceof Error ? e.message : "迁移失败，请稍后重试");
+    }
+    setMigrating(false);
   };
 
   // 数据加载完成前不渲染，防止闪跳
@@ -545,7 +587,14 @@ export default function Tab4Page() {
       <div className="mt-10 pt-6 border-t border-white/10">
         <div className="text-center">
           <button
-            onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+            onClick={() => {
+              if (showDeleteConfirm) {
+                setSourceUuid("");
+                setMigrationError("");
+                setShowMigrationConfirm(false);
+              }
+              setShowDeleteConfirm(!showDeleteConfirm);
+            }}
             className="text-xs text-white/30 hover:text-white/60 transition-colors"
           >
             ⚙️ 数据管理
@@ -553,68 +602,149 @@ export default function Tab4Page() {
         </div>
 
         {showDeleteConfirm && (
-          <div className="mt-4 max-w-xs mx-auto bg-red-500/5 border border-red-500/20 rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
-            <p className="text-sm text-red-300/90 mb-1 font-medium">⚠️ 注销账号</p>
-            <p className="text-xs text-white/50 mb-4 leading-relaxed">
-              此操作将删除你的全部数据，30 天内登录可恢复。
-              本地缓存的数据需要手动清除。
-            </p>
-            {deleteError && (
-              <p className="text-xs text-red-400 mb-3">{deleteError}</p>
+          <div className="mt-4 space-y-4">
+            {/* UUID 展示 */}
+            <div className="max-w-xs mx-auto bg-white/5 border border-white/[0.06] rounded-xl p-4">
+              <p className="text-xs text-white/60 mb-2">你的账号 UUID</p>
+              <div className="flex items-center gap-2">
+                <code className="text-xs text-white/80 font-mono flex-1 truncate">
+                  {currentUserId || "加载中..."}
+                </code>
+                <button
+                  onClick={handleCopyUuid}
+                  className="shrink-0 px-3 py-1 rounded-lg text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                >
+                  {copied ? "已复制" : "复制"}
+                </button>
+              </div>
+              <p className="text-xs text-white/40 mt-2">
+                将此 UUID 复制到新账号，即可迁移全部数据
+              </p>
+            </div>
+
+            {/* 数据迁移 */}
+            <div className="max-w-xs mx-auto">
+              <p className="text-xs text-white/40 mb-2 text-center">─── 从旧账号迁移数据 ───</p>
+              <p className="text-xs text-white/50 mb-3 text-center leading-relaxed">
+                粘贴旧账号的 UUID，将其全部数据迁移到当前账号。
+              </p>
+
+              {!showMigrationConfirm ? (
+                <div>
+                  <input
+                    type="text"
+                    value={sourceUuid}
+                    onChange={(e) => setSourceUuid(e.target.value)}
+                    placeholder="粘贴源账号 UUID"
+                    className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/[0.08] text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-primary/50 mb-2"
+                  />
+                  {migrationError && (
+                    <p className="text-xs text-red-400 mb-2">{migrationError}</p>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (!sourceUuid.trim()) return;
+                      setMigrationError("");
+                      setShowMigrationConfirm(true);
+                    }}
+                    disabled={!sourceUuid.trim()}
+                    className="w-full px-4 py-2 rounded-lg text-xs text-white bg-primary/60 hover:bg-primary/80 transition-colors disabled:opacity-40"
+                  >
+                    发起数据迁移
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
+                  <p className="text-sm text-red-300/90 mb-1 font-medium">⚠️ 确认数据迁移</p>
+                  <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                    此操作将把源账号的全部数据（问卷答案、日记、说明书等）迁移至当前账号。
+                    此过程不可逆，迁移后源账号将被注销。
+                  </p>
+                  {migrationError && (
+                    <p className="text-xs text-red-400 mb-3">{migrationError}</p>
+                  )}
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={() => { setShowMigrationConfirm(false); setMigrationError(""); }}
+                      className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
+                      disabled={migrating}
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleMigrate}
+                      disabled={migrating}
+                      className="px-4 py-2 rounded-lg text-xs text-white bg-red-500/70 hover:bg-red-500/90 transition-colors disabled:opacity-50"
+                    >
+                      {migrating ? "迁移中…" : "确认迁移"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 注销账号 */}
+            <div className="max-w-xs mx-auto bg-red-500/5 border border-red-500/20 rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
+              <p className="text-sm text-red-300/90 mb-1 font-medium">⚠️ 注销账号</p>
+              <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                此操作将删除你的全部数据，30 天内登录可恢复。
+                本地缓存的数据需要手动清除。
+              </p>
+              {deleteError && (
+                <p className="text-xs text-red-400 mb-3">{deleteError}</p>
+              )}
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
+                  className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
+                  disabled={deleting}
+                >
+                  关闭
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="px-4 py-2 rounded-lg text-xs text-white bg-red-500/70 hover:bg-red-500/90 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? "注销中…" : "确认注销"}
+                </button>
+              </div>
+            </div>
+
+            {/* 导出 + 清除 */}
+            <div className="flex items-center justify-center gap-4">
+              <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+                💾 导出全部数据
+              </button>
+              <span className="text-white/10">|</span>
+              <button onClick={() => setShowClearConfirm(true)} className="text-xs text-white/30 hover:text-white/60 transition-colors">
+                🗑️ 清除本地数据
+              </button>
+            </div>
+
+            {/* 清除本地数据确认弹窗 */}
+            {showClearConfirm && (
+              <div className="max-w-xs mx-auto bg-white/5 border border-white/[0.06] rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
+                <p className="text-sm text-white/90 mb-1 font-medium">⚠️ 清除本地数据</p>
+                <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                  将清除全部本地缓存数据（问卷答案、日记、报告等），此操作不可撤销。建议先导出数据。
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => setShowClearConfirm(false)}
+                    className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleClearData}
+                    className="px-4 py-2 rounded-lg text-xs text-white bg-secondary/70 hover:bg-secondary/90 transition-colors"
+                  >
+                    确认清除
+                  </button>
+                </div>
+              </div>
             )}
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
-                className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
-                disabled={deleting}
-              >
-                取消
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="px-4 py-2 rounded-lg text-xs text-white bg-red-500/70 hover:bg-red-500/90 transition-colors disabled:opacity-50"
-              >
-                {deleting ? "注销中…" : "确认注销"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 数据操作按钮组 */}
-        {!showDeleteConfirm && (
-          <div className="flex items-center justify-center gap-4 mt-3">
-            <button onClick={exportAllData} className="text-xs text-white/30 hover:text-white/60 transition-colors">
-              💾 导出全部数据
-            </button>
-            <span className="text-white/10">|</span>
-            <button onClick={() => setShowClearConfirm(true)} className="text-xs text-white/30 hover:text-white/60 transition-colors">
-              🗑️ 清除本地数据
-            </button>
-          </div>
-        )}
-
-        {/* 清除本地数据确认弹窗 */}
-        {showClearConfirm && (
-          <div className="mt-4 max-w-xs mx-auto bg-white/5 border border-white/[0.06] rounded-xl p-4 text-center animate-[fadeIn_0.2s_ease-out]">
-            <p className="text-sm text-white/90 mb-1 font-medium">⚠️ 清除本地数据</p>
-            <p className="text-xs text-white/50 mb-4 leading-relaxed">
-              将清除全部本地缓存数据（问卷答案、日记、报告等），此操作不可撤销。建议先导出数据。
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-lg text-xs text-white/60 bg-white/10 hover:bg-white/20 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleClearData}
-                className="px-4 py-2 rounded-lg text-xs text-white bg-secondary/70 hover:bg-secondary/90 transition-colors"
-              >
-                确认清除
-              </button>
-            </div>
           </div>
         )}
       </div>

@@ -130,3 +130,15 @@ export async function updateProfile(data: { nickname?: string }) {
     body: JSON.stringify(data),
   });
 }
+
+// ========= Data Migration =========
+
+export async function migrateData(sourceUuid: string) {
+  return request<{ ok: boolean; message: string; detail: Record<string, number> }>(
+    "/data/migrate",
+    {
+      method: "POST",
+      body: JSON.stringify({ sourceUuid }),
+    }
+  );
+}

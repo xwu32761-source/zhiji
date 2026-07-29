@@ -9,7 +9,7 @@ import type { Prisma } from "@prisma/client";
 
 export interface AuditInput {
   userId: string;
-  action: "login" | "export" | "delete_account" | "generate_report" | "payment";
+  action: "login" | "export" | "delete_account" | "generate_report" | "payment" | "migrate";
   resourceType: string;
   resourceId?: string;
   detail?: Prisma.InputJsonValue;
