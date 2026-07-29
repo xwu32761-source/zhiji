@@ -7,6 +7,9 @@ import { StarButton } from "@/components/ui/star-button";
 import { StarsBackground } from "@/components/ui/stars";
 import MainLayout from "./main/layout";
 
+const EMAIL_LOGIN_DISABLED =
+  process.env.NEXT_PUBLIC_EMAIL_LOGIN_DISABLED === "true";
+
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -14,16 +17,17 @@ export default function HomePage() {
 
   useEffect(() => {
     if (status === "loading") return;
-    if (status === "authenticated") {
+    // 登录关闭期间，未登录也能直接进应用
+    if (status === "authenticated" || EMAIL_LOGIN_DISABLED) {
       setPhase("app");
     } else {
       setPhase("landing");
     }
   }, [status]);
 
-  // Enter main app — 未登录跳转登录页，已登录直接进
+  // Enter main app — 登录关闭时直接进，否则跳登录页
   const handleEnter = () => {
-    if (status === "authenticated") {
+    if (status === "authenticated" || EMAIL_LOGIN_DISABLED) {
       setPhase("app");
     } else {
       router.push("/auth/login");
