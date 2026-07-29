@@ -4,9 +4,12 @@ import { useState, FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { StarsBackground } from "@/components/ui/stars";
 
+const EMAIL_LOGIN_DISABLED =
+  process.env.NEXT_PUBLIC_EMAIL_LOGIN_DISABLED === "true";
+
 type Status = "idle" | "sending" | "sent" | "error";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -119,4 +122,29 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function ComingSoon() {
+  return (
+    <div className="min-h-screen bg-[#0a0a14] flex items-center justify-center px-6">
+      <StarsBackground className="absolute inset-0" />
+      <div className="relative z-10 max-w-sm text-center">
+        <div className="text-5xl mb-6">🔜</div>
+        <h1 className="text-xl font-bold text-white mb-3 tracking-wide">
+          即将开放
+        </h1>
+        <p className="text-sm text-white/70 leading-relaxed">
+          邮箱登录功能正在做最后准备，敬请期待。
+        </p>
+        <p className="text-xs text-white/50 mt-6 leading-relaxed">
+          域名备案完成后即可使用。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  if (EMAIL_LOGIN_DISABLED) return <ComingSoon />;
+  return <LoginForm />;
 }
