@@ -183,6 +183,25 @@ UI层 → 数据层 → 存储层 → 外部依赖层 → 部署层
 - **漏掉原因**：修复时只验证了"本地条目有 aiHook"和"API 条目有 aiHook"，没有验证**匹配 key 是否真正相等**。没有检查 API 与本地 `entryDate` 的格式化差异。
 - **最终解决**：移除 Tab3 所有 API merge 逻辑，localStorage 为唯一数据源（`setEntries(loadEntries())`）。`saveEntryLocal` 始终在 `apiCreateEntry` 之前同步运行，本地数据始终完整。
 
+---
+
+## 2026-07-30 叙事模式固定 fallback + 邮箱→用户名密码登录
+
+### 1. 叙事模式无论输入什么，都输出固定 fallback 内容（"深夜独处的思考时刻"）
+
+- **问题**：叙事模式输入任何文字，返回标题为"深夜独处的思考时刻"的固定内容。
+- **根因**：不是 DeepSeek 模型名问题。`EMAIL_LOGIN_DISABLED=true` 时，middleware 放行 `/main` 页面访问但不创建 session。API 路由（`/api/ai/narrative`）调用 `getServerSession(authOptions)` 返回 null，返回 401。Tab2 的 `handleNarrativeSubmit` 中 `catch` 捕获 401，设置硬编码 fallback `{ title: "深夜独处的思考时刻", ... }`。
+- **解决**：创建 `src/lib/session.ts` 统一认证函数 `requireSession()`，在 4 个 AI 路由（narrative、chat、report、weekly）中用 `requireSession()` 替代直接 `getServerSession`。匿名回退逻辑仅在 `EMAIL_LOGIN_DISABLED` 期间有效。
+
+### 2. 邮箱登录→用户名+密码登录重构
+
+- **移除**：EmailProvider（Resend 发魔法链接）、verify-request 页面、EMAIL_LOGIN_DISABLED、ConsentBanner
+- **新增**：CredentialsProvider（用户名+密码）、注册 API（`/api/auth/register`）、tab 切换登录/注册页
+- **Schema**：User 模型加 `username`（unique）和 `passwordHash` 字段
+- **隐私确认**：从登录后 ConsentBanner 移到注册表单内勾选
+
+---
+
 ### 3. 自我复盘：本次修复违背了哪条原则
 
 | 原则 | 违背表现 |

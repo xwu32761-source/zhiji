@@ -4,10 +4,8 @@ import { useState, useEffect } from "react";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { ToastProvider } from "@/components/shared/ToastManager";
 import { StarsBackground } from "@/components/ui/stars";
-import { ConsentBanner } from "@/components/shared/ConsentBanner";
 import { SOSButton } from "@/components/shared/SOSButton";
 import { TabType } from "@/lib/types";
-import { getConsent } from "@/lib/storage";
 import Tab1Page from "./Tab1";
 import Tab2Page from "./Tab2";
 import Tab3Page from "./Tab3";
@@ -17,15 +15,10 @@ export default function MainLayout() {
   const [activeTab, setActiveTab] = useState<TabType>("1");
   const [mounted, setMounted] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
-  const [consented, setConsented] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setIsOffline(typeof navigator !== "undefined" && !navigator.onLine);
-    const existing = getConsent();
-    if (existing?.agreedToTerms && existing?.agreedToAI) {
-      setConsented(true);
-    }
   }, []);
 
   useEffect(() => {
@@ -41,16 +34,6 @@ export default function MainLayout() {
 
   if (!mounted) {
     return <div className="min-h-screen bg-[#0a0a14]" />;
-  }
-
-  // 未同意采集 → 展示同意弹窗
-  if (mounted && !consented) {
-    return (
-      <ToastProvider>
-        <StarsBackground className="fixed inset-0 -z-10" />
-        <ConsentBanner onConsent={() => setConsented(true)} />
-      </ToastProvider>
-    );
   }
 
   const renderTab = () => {

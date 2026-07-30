@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { generateWeeklyReport } from "@/lib/ai";
 import { rateLimit } from "@/lib/rate-limit";
+import { requireSession } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
+    const { userId } = await requireSession(req);
 
     // 速率限制：周报 5 次/分钟
-    const rl = rateLimit(`ai:weekly:${session.user.id}`, 5, 60_000);
+    const rl = rateLimit(`ai:weekly:${userId}`, 5, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
         { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` },

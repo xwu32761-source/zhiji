@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { generateReport, generateQuickProfile } from "@/lib/ai";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import { requireSession } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
+    const { userId } = await requireSession(req);
 
     // 速率限制：报告生成 3 次/分钟（已有 Quota，限流防止突发）
-    const rl = rateLimit(`ai:report:${session.user.id}`, 3, 60_000);
+    const rl = rateLimit(`ai:report:${userId}`, 3, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
         { error: `请求过于频繁，请 ${rl.retryAfter} 秒后重试` },
@@ -28,7 +24,7 @@ export async function POST(req: NextRequest) {
       const pillarJson = JSON.stringify(userProfile || {}, null, 2);
       const report = await generateQuickProfile(pillarJson);
       logAudit({
-        userId: session.user.id,
+        userId,
         action: "generate_report",
         resourceType: "report",
         detail: { quick: true },
@@ -48,7 +44,7 @@ ${JSON.stringify(recentEntries || [], null, 2)}
     const report = await generateReport(userData);
 
     logAudit({
-      userId: session.user.id,
+      userId,
       action: "generate_report",
       resourceType: "report",
       detail: { quick: false },
