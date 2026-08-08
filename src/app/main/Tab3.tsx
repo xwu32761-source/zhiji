@@ -21,7 +21,11 @@ import {
 const STORAGE_KEY = KEYS.DIARY_ENTRIES;
 const REGISTER_YEAR = 2026;
 const REGISTER_MONTH = 7;
-const NOW = { year: 2026, month: 7 };
+/** 当前年月（动态获取，避免硬编码导致月份停滞） */
+const NOW = (() => {
+  const d = new Date();
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+})();
 const MONTH_NAMES = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
